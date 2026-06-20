@@ -1,56 +1,42 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"os"
-	"strings"
-
-	// You will need to ensure this imports your internal backend package
-	// Replace "spotiflac/backend" with your actual go.mod module name if different.
-	"spotiflac/backend"
 )
 
-// Request payloads matching the frontend
-type SearchRequest struct {
-	Query      string `json:"query"`
-	SearchType string `json:"search_type"`
-	Limit      int    `json:"limit"`
-	Offset     int    `json:"offset"`
-}
-
-type DownloadRequest struct {
-	SpotifyID string `json:"spotify_id"`
-	Service   string `json:"service"` // e.g., "tidal", "qobuz"
-}
+// Global reference to the SpotiFLAC core application
+var engine *App
 
 func main() {
-	// Dynamically bind to Railway's assigned port
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080" 
+		port = "8080"
 	}
 
-	// Initialize backend caches and configurations (similar to app.go)
-	backend.InitConfig()
-	backend.InitCaches()
+	// 1. Initialize the existing SpotiFLAC App from app.go
+	engine = NewApp()
+	
+	// 2. Assign a standard web context (Replacing the Wails desktop context)
+	engine.ctx = context.Background()
 
-	// Register API endpoints
+	// 3. Register our web endpoints
 	http.HandleFunc("/api/search", handleSearch)
 	http.HandleFunc("/api/download", handleDownload)
 
-	log.Printf("SpotiFLAC Web API running on port %s...\n", port)
+	log.Printf("Railway Web Server active on port %s...\n", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+		log.Fatalf("Server crashed: %v", err)
 	}
 }
 
-// CORS Middleware for Cloudflare Pages communication
 func enableCORS(w *http.ResponseWriter, r *http.Request) bool {
-	(*w).Header().Set("Access-Control-Allow-Origin", "*") // Update to your Cloudflare URL in production
+	(*w).Header().Set("Access-Control-Allow-Origin", "*") 
 	(*w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	
 	if r.Method == "OPTIONS" {
 		(*w).WriteHeader(http.StatusOK)
@@ -59,54 +45,44 @@ func enableCORS(w *http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
+// Bridges your web UI to the SearchSpotifyByType method in app.go
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if enableCORS(&w, r) { return }
 
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req SearchRequest
+	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	// Call the spotfetch logic to query Spotify without a user login
-	results, err := backend.SearchSpotify(req.Query, req.SearchType, req.Limit, req.Offset)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// Safely extract payload variables
+	query, _ := req["query"].(string)
+	searchType, _ := req["search_type"].(string)
+	limit := 20
+	offset := 0
 
+	// Execute original search logic
+	results := engine.SearchSpotifyByType(query, searchType, limit, offset)
+	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
 }
 
+// Bridges your web UI to the DownloadTrack method in app.go
 func handleDownload(w http.ResponseWriter, r *http.Request) {
 	if enableCORS(&w, r) { return }
 
-	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req DownloadRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var reqData map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
 		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	// Tell the browser to expect a downloadable audio file
-	w.Header().Set("Content-Type", "audio/flac")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+req.SpotifyID+`.flac"`)
-
-	// Stream track bytes directly to the HTTP response writer 
-	// Note: You will need to adapt your specific provider (Tidal/Qobuz) to write to `w` (io.Writer) 
-	// instead of saving directly to a local file path.
-	err := backend.DownloadAndStreamTrack(req.SpotifyID, req.Service, w)
-	if err != nil {
-		log.Printf("Streaming error: %v", err)
-	}
+	// Note: Because app.go natively writes to the local hard drive, 
+	// for a complete web-streaming experience you will eventually need to alter 
+	// app.go so that it pipes the final FLAC binary directly into the HTTP response (w).
+	// For now, this triggers the download loop correctly.
+	engine.DownloadTrack(reqData)
+	
+	w.WriteHeader(http.StatusOK)
 }
