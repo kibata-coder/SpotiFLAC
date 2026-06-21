@@ -191,36 +191,48 @@ export function TrackList({ tracks, searchQuery, sortBy, selectedTracks, downloa
         return <XCircle className="h-4 w-4 text-red-500"/>;
     };
     return (<div className="space-y-4">
-    <div className="rounded-md border">
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ border: '1px solid var(--sp-border)', background: 'var(--sp-surface)' }}
+    >
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b bg-muted/50">
-              {showCheckboxes && (<th className="h-12 px-4 text-left align-middle w-12">
+            <tr
+              className="border-b"
+              style={{ borderColor: 'var(--sp-border)' }}
+            >
+              {showCheckboxes && (<th className="h-10 px-4 text-left align-middle w-12">
                 <Checkbox checked={allSelected} onCheckedChange={() => onToggleSelectAll(filteredTracks)}/>
               </th>)}
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-12">
+              <th className="h-10 px-4 text-center align-middle w-12 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--sp-subdued)' }}>
                 #
               </th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+              <th className="h-10 px-4 text-left align-middle text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--sp-subdued)' }}>
                 Title
               </th>
-              {!hideAlbumColumn && (<th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden md:table-cell">
+              {!hideAlbumColumn && (<th className="h-10 px-4 text-left align-middle text-xs font-bold uppercase tracking-wider hidden md:table-cell" style={{ color: 'var(--sp-subdued)' }}>
                 Album
               </th>)}
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden lg:table-cell w-24">
+              <th className="h-10 px-4 text-left align-middle text-xs font-bold uppercase tracking-wider hidden lg:table-cell w-24" style={{ color: 'var(--sp-subdued)' }}>
                 Duration
               </th>
-              <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground hidden xl:table-cell w-32">
+              <th className="h-10 px-4 text-left align-middle text-xs font-bold uppercase tracking-wider hidden xl:table-cell w-32" style={{ color: 'var(--sp-subdued)' }}>
                 Plays
               </th>
-              <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground w-32">
+              <th className="h-10 px-4 text-center align-middle text-xs font-bold uppercase tracking-wider w-32" style={{ color: 'var(--sp-subdued)' }}>
                 Actions
               </th>
             </tr>
           </thead>
           <tbody>
-            {paginatedTracks.map((track, index) => (<tr key={getTrackKey(track)} className="border-b transition-colors hover:bg-muted/50">
+            {paginatedTracks.map((track, index) => (<tr
+              key={getTrackKey(track)}
+              className="border-b transition-colors group"
+              style={{ borderColor: 'var(--sp-border)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}
+            >
               {showCheckboxes && (<td className="p-4 align-middle">
                 {track.spotify_id && (<Checkbox checked={selectedTracks.includes(track.spotify_id)} onCheckedChange={() => onToggleTrack(track.spotify_id!)}/>)}
               </td>)}

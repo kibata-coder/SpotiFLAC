@@ -662,14 +662,12 @@ export function SearchBar({ url, loading, onUrlChange, onFetch, onFetchUrl, hist
             </div>)}
 
           {!isSearching && hasAnyResults && (<>
-              <div className="flex gap-1 border-b mb-4">
+              <div className="flex gap-0 border-b mb-4" style={{ borderColor: 'var(--sp-border)' }}>
                 {tabs.map((tab) => {
                     const count = getTabCount(tab.key);
                     if (count === 0)
                         return null;
-                    return (<button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={cn("px-4 py-2 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px", activeTab === tab.key
-                            ? "border-primary text-foreground"
-                            : "border-transparent text-muted-foreground hover:text-foreground")}>
+                    return (<button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`sp-tab ${activeTab === tab.key ? 'active' : ''}`}>
                       {tab.label} ({count})
                     </button>);
                 })}
@@ -722,55 +720,69 @@ export function SearchBar({ url, loading, onUrlChange, onFetch, onFetchUrl, hist
 
               <div className="grid gap-2">
                 {activeTab === "tracks" &&
-                    sortedResults.tracks.map((track) => (<button key={track.id} type="button" className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent border cursor-pointer text-left transition-colors" onClick={() => handleResultClick(track.external_urls)}>
-                      {track.images ? (<img src={track.images} alt="" className="w-12 h-12 rounded object-cover shrink-0"/>) : (<div className="w-12 h-12 rounded bg-muted shrink-0"/>)}
+                    sortedResults.tracks.map((track) => (<button key={track.id} type="button"
+                      className="flex items-center gap-3 p-3 rounded-lg cursor-pointer text-left transition-colors w-full"
+                      style={{ background: 'var(--sp-elevated)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--sp-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'var(--sp-elevated)')}
+                      onClick={() => handleResultClick(track.external_urls)}>
+                      {track.images ? (<img src={track.images} alt="" className="w-11 h-11 rounded sp-cover shrink-0"/>) : (<div className="w-11 h-11 rounded shrink-0" style={{ background: 'var(--sp-hover)' }}/>)}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-medium truncate">{track.name}</p>
-                          {track.is_explicit && (<span className="flex items-center justify-center min-w-[16px] h-[16px] rounded bg-red-600 text-[10px] font-bold text-white leading-none shrink-0" title="Explicit">
-                              E
-                            </span>)}
+                          <p className="font-semibold text-sm truncate text-white">{track.name}</p>
+                          {track.is_explicit && (<span className="sp-explicit shrink-0" title="Explicit">E</span>)}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-xs truncate" style={{ color: 'var(--sp-subdued)' }}>
                           {track.artists}
                         </p>
                       </div>
-                      <span className="text-sm text-muted-foreground shrink-0">
+                      <span className="text-xs tabular-nums shrink-0" style={{ color: 'var(--sp-subdued)' }}>
                         {formatDuration(track.duration_ms || 0)}
                       </span>
                     </button>))}
 
                 {activeTab === "albums" &&
-                    sortedResults.albums.map((album) => (<button key={album.id} type="button" className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent border cursor-pointer text-left transition-colors" onClick={() => handleResultClick(album.external_urls)}>
-                      {album.images ? (<img src={album.images} alt="" className="w-12 h-12 rounded object-cover shrink-0"/>) : (<div className="w-12 h-12 rounded bg-muted shrink-0"/>)}
+                    sortedResults.albums.map((album) => (<button key={album.id} type="button"
+                      className="flex items-center gap-3 p-3 rounded-lg cursor-pointer text-left transition-colors w-full"
+                      style={{ background: 'var(--sp-elevated)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--sp-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'var(--sp-elevated)')}
+                      onClick={() => handleResultClick(album.external_urls)}>
+                      {album.images ? (<img src={album.images} alt="" className="w-11 h-11 rounded sp-cover shrink-0"/>) : (<div className="w-11 h-11 rounded shrink-0" style={{ background: 'var(--sp-hover)' }}/>)}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{album.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {album.artists}
-                        </p>
+                        <p className="font-semibold text-sm truncate text-white">{album.name}</p>
+                        <p className="text-xs truncate" style={{ color: 'var(--sp-subdued)' }}>{album.artists}</p>
                       </div>
-                      <span className="text-sm text-muted-foreground shrink-0">
+                      <span className="text-xs tabular-nums shrink-0" style={{ color: 'var(--sp-subdued)' }}>
                         {album.release_date || ""}
                       </span>
                     </button>))}
 
                 {activeTab === "artists" &&
-                    sortedResults.artists.map((artist) => (<button key={artist.id} type="button" className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent border cursor-pointer text-left transition-colors" onClick={() => handleResultClick(artist.external_urls)}>
-                      {artist.images ? (<img src={artist.images} alt="" className="w-12 h-12 rounded-full object-cover shrink-0"/>) : (<div className="w-12 h-12 rounded-full bg-muted shrink-0"/>)}
+                    sortedResults.artists.map((artist) => (<button key={artist.id} type="button"
+                      className="flex items-center gap-3 p-3 rounded-lg cursor-pointer text-left transition-colors w-full"
+                      style={{ background: 'var(--sp-elevated)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--sp-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'var(--sp-elevated)')}
+                      onClick={() => handleResultClick(artist.external_urls)}>
+                      {artist.images ? (<img src={artist.images} alt="" className="w-11 h-11 rounded-full sp-cover shrink-0"/>) : (<div className="w-11 h-11 rounded-full shrink-0" style={{ background: 'var(--sp-hover)' }}/>)}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{artist.name}</p>
-                        <p className="text-sm text-muted-foreground">Artist</p>
+                        <p className="font-semibold text-sm truncate text-white">{artist.name}</p>
+                        <p className="text-xs" style={{ color: 'var(--sp-subdued)' }}>Artist</p>
                       </div>
                     </button>))}
 
                 {activeTab === "playlists" &&
-                    sortedResults.playlists.map((playlist) => (<button key={playlist.id} type="button" className="flex items-center gap-3 p-3 rounded-lg bg-card hover:bg-accent border cursor-pointer text-left transition-colors" onClick={() => handleResultClick(playlist.external_urls)}>
-                      {playlist.images ? (<img src={playlist.images} alt="" className="w-12 h-12 rounded object-cover shrink-0"/>) : (<div className="w-12 h-12 rounded bg-muted shrink-0"/>)}
+                    sortedResults.playlists.map((playlist) => (<button key={playlist.id} type="button"
+                      className="flex items-center gap-3 p-3 rounded-lg cursor-pointer text-left transition-colors w-full"
+                      style={{ background: 'var(--sp-elevated)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--sp-hover)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'var(--sp-elevated)')}
+                      onClick={() => handleResultClick(playlist.external_urls)}>
+                      {playlist.images ? (<img src={playlist.images} alt="" className="w-11 h-11 rounded sp-cover shrink-0"/>) : (<div className="w-11 h-11 rounded shrink-0" style={{ background: 'var(--sp-hover)' }}/>)}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{playlist.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {playlist.owner || ""}
-                        </p>
+                        <p className="font-semibold text-sm truncate text-white">{playlist.name}</p>
+                        <p className="text-xs truncate" style={{ color: 'var(--sp-subdued)' }}>{playlist.owner || ""}</p>
                       </div>
                     </button>))}
               </div>
