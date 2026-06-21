@@ -25,10 +25,11 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-white font-sans">
+    <div className="flex h-screen w-screen overflow-hidden bg-zinc-950 text-white font-sans selection:bg-green-500/30">
       <Sidebar currentTab={activeTab} onTabChange={setActiveTab} />
       
       <div className="flex flex-col flex-1 overflow-hidden">
+        {/* We removed the <TitleBar /> from here entirely */}
         <Header />
         
         <main className="flex-1 overflow-y-auto p-6 container mx-auto max-w-5xl">
