@@ -61,8 +61,20 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	limit := 20
 	offset := 0
 
-	// Execute original search logic
-	results := engine.SearchSpotifyByType(query, searchType, limit, offset)
+	// 1. Pack the variables into the struct app.go expects
+	searchReq := SpotifySearchByTypeRequest{
+		Query:      query,
+		SearchType: searchType,
+		Limit:      limit,
+		Offset:     offset,
+	}
+
+	// 2. Execute original search logic and capture both results AND the error
+	results, err := engine.SearchSpotifyByType(searchReq)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(results)
@@ -72,17 +84,23 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 func handleDownload(w http.ResponseWriter, r *http.Request) {
 	if enableCORS(&w, r) { return }
 
-	var reqData map[string]interface{}
+	// 1. Decode the JSON directly into the DownloadRequest struct defined in app.go
+	var reqData DownloadRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
 		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	// Note: Because app.go natively writes to the local hard drive, 
-	// for a complete web-streaming experience you will eventually need to alter 
-	// app.go so that it pipes the final FLAC binary directly into the HTTP response (w).
-	// For now, this triggers the download loop correctly.
-	engine.DownloadTrack(reqData)
+	// 2. Call the engine and capture the response/error
+	resp, err := engine.DownloadTrack(reqData)
 	
-	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	
+	// Send the detailed response back to the frontend
+	json.NewEncoder(w).Encode(resp)
 }
