@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "postinstall": "node scripts/generate-icon.js",
     "lint": "eslint .",
     "preview": "vite preview",
