@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { searchSpotify, downloadTrackWeb, SearchResult } from '../lib/api'; 
+import { searchSpotify, downloadTrackWeb } from '../lib/api'; 
+import type { SearchResult } from '../lib/api';
 
 export const SearchPanel: React.FC = () => {
   const [query, setQuery] = useState('');
