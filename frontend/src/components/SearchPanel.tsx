@@ -15,7 +15,6 @@ export const SearchPanel: React.FC = () => {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
-
     setLoading(true);
     setHasSearched(true);
     try {
@@ -51,88 +50,92 @@ export const SearchPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 pb-12">
+    <div className="w-full flex flex-col pb-12">
 
-      {/* ── Page heading ─────────────────────────────────── */}
-      <div className="animate-fade-in">
-        <h1 className="text-3xl font-black text-white tracking-tight leading-none mb-1">
-          Search &amp; Download
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--sp-subdued)' }}>
-          Find any track, album, or playlist and download in lossless FLAC quality
-        </p>
-      </div>
-
-      {/* ── Search form ───────────────────────────────────── */}
-      <form
-        onSubmit={handleSearch}
-        className="flex flex-col sm:flex-row gap-3 max-w-3xl animate-fade-in"
-        style={{ animationDelay: '60ms' }}
+      {/* ── Sticky header: title + search form ─────────────── */}
+      {/* Negative margin breaks out of the parent padding, then re-applies it
+          so the sticky bar spans edge-to-edge while content stays padded */}
+      <div
+        className="sticky top-0 z-20 -mx-6 lg:-mx-8 px-6 lg:px-8 pt-5 pb-4 mb-4"
+        style={{
+          background: 'rgba(18,18,18,0.94)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}
       >
-        {/* Search input */}
-        <div className="relative flex-1 group">
-          <SearchIcon
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors duration-150"
-            style={{ color: 'var(--sp-muted)' }}
-          />
-          <input
-            id="search-input"
-            type="text"
-            placeholder="What do you want to download?"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            className="sp-search-input"
-            autoComplete="off"
-          />
+        {/* Page title */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-black text-white tracking-tight leading-none mb-0.5">
+            Search &amp; Download
+          </h1>
+          <p className="text-xs" style={{ color: 'var(--sp-subdued)' }}>
+            Find any track or album and download in lossless FLAC quality
+          </p>
         </div>
 
-        <div className="flex gap-2 shrink-0">
-          {/* Type selector */}
-          <div
-            className="relative flex items-center gap-2 px-4 rounded-full transition-colors cursor-pointer"
-            style={{ background: '#242424' }}
-          >
-            {searchType === 'track'
-              ? <Music className="w-4 h-4 shrink-0" style={{ color: 'var(--sp-subdued)' }} />
-              : <Disc3 className="w-4 h-4 shrink-0" style={{ color: 'var(--sp-subdued)' }} />}
-            <select
-              value={searchType}
-              onChange={e => setSearchType(e.target.value)}
-              className="bg-transparent text-sm font-bold text-white outline-none appearance-none cursor-pointer pr-2 py-3"
-            >
-              <option value="track" style={{ background: '#242424' }}>Tracks</option>
-              <option value="album" style={{ background: '#242424' }}>Albums</option>
-            </select>
+        {/* Search form */}
+        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 max-w-3xl">
+          {/* Input */}
+          <div className="relative flex-1">
+            <SearchIcon
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
+              style={{ color: 'var(--sp-muted)' }}
+            />
+            <input
+              id="search-input"
+              type="text"
+              placeholder="What do you want to download?"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              className="sp-search-input"
+              autoComplete="off"
+            />
           </div>
 
-          {/* Search button */}
-          <button
-            type="submit"
-            id="search-submit"
-            disabled={loading || !query.trim()}
-            className="sp-btn-primary"
-          >
-            {loading
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <>
-                  <Wand2 className="w-4 h-4" />
-                  Search
-                </>
-            }
-          </button>
-        </div>
-      </form>
+          <div className="flex gap-2 shrink-0">
+            {/* Type selector */}
+            <div
+              className="relative flex items-center gap-2 px-4 rounded-full"
+              style={{ background: '#242424' }}
+            >
+              {searchType === 'track'
+                ? <Music className="w-4 h-4 shrink-0" style={{ color: 'var(--sp-subdued)' }} />
+                : <Disc3 className="w-4 h-4 shrink-0" style={{ color: 'var(--sp-subdued)' }} />}
+              <select
+                value={searchType}
+                onChange={e => setSearchType(e.target.value)}
+                className="bg-transparent text-sm font-bold text-white outline-none appearance-none cursor-pointer pr-2 py-3"
+              >
+                <option value="track" style={{ background: '#242424' }}>Tracks</option>
+                <option value="album" style={{ background: '#242424' }}>Albums</option>
+              </select>
+            </div>
 
-      {/* ── Results header ────────────────────────────────── */}
-      {results.length > 0 && (
+            {/* Submit */}
+            <button
+              type="submit"
+              id="search-submit"
+              disabled={loading || !query.trim()}
+              className="sp-btn-primary"
+            >
+              {loading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <><Wand2 className="w-4 h-4" />Search</>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ── Results column header ──────────────────────────── */}
+      {results.length > 0 && !loading && (
         <div
-          className="grid gap-1 px-4 py-2 text-xs font-bold uppercase tracking-widest border-b sticky top-0 z-10 animate-fade-in"
+          className="grid gap-1 px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in"
           style={{
             gridTemplateColumns: '2.5rem 1fr 5rem 7rem',
             color: 'var(--sp-subdued)',
             borderColor: 'var(--sp-border)',
-            background: 'rgba(18,18,18,0.92)',
-            backdropFilter: 'blur(12px)',
           }}
         >
           <div className="text-center">#</div>
@@ -158,7 +161,7 @@ export const SearchPanel: React.FC = () => {
                 animationDelay: `${Math.min(index * 30, 400)}ms`,
               }}
             >
-              {/* Row number / play icon */}
+              {/* Row number / download icon */}
               <div className="sp-row-num-wrap">
                 <span
                   className="sp-row-num"
@@ -174,11 +177,7 @@ export const SearchPanel: React.FC = () => {
               {/* Track info */}
               <div className="flex items-center gap-3 min-w-0 overflow-hidden">
                 {item.cover ? (
-                  <img
-                    src={item.cover}
-                    alt=""
-                    className="w-10 h-10 rounded sp-cover flex-shrink-0"
-                  />
+                  <img src={item.cover} alt="" className="w-10 h-10 rounded sp-cover flex-shrink-0" />
                 ) : (
                   <div
                     className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
@@ -196,9 +195,7 @@ export const SearchPanel: React.FC = () => {
                   </span>
                   <span className="text-xs truncate leading-snug" style={{ color: 'var(--sp-subdued)' }}>
                     {item.artists}
-                    {item.album ? (
-                      <span style={{ color: 'var(--sp-muted)' }}> · {item.album}</span>
-                    ) : null}
+                    {item.album ? <span style={{ color: 'var(--sp-muted)' }}> · {item.album}</span> : null}
                   </span>
                 </div>
               </div>
@@ -229,15 +226,9 @@ export const SearchPanel: React.FC = () => {
                     style={{ letterSpacing: 'normal', textTransform: 'none' }}
                   >
                     {isDownloading ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Extracting…
-                      </>
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" />Extracting…</>
                     ) : (
-                      <>
-                        <Download className="w-3.5 h-3.5" />
-                        FLAC
-                      </>
+                      <><Download className="w-3.5 h-3.5" />FLAC</>
                     )}
                   </button>
                 )}
@@ -249,29 +240,15 @@ export const SearchPanel: React.FC = () => {
 
       {/* ── Empty / idle state ────────────────────────────── */}
       {!loading && results.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-28 text-center animate-fade-in-scale">
-          {/* Spotify-style waveform rings */}
+        <div className="flex flex-col items-center justify-center py-24 text-center animate-fade-in-scale">
           <div className="relative mb-8">
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(29,185,84,0.12)' }}
-            >
-              <div
-                className="w-14 h-14 rounded-full flex items-center justify-center"
-                style={{ background: 'rgba(29,185,84,0.2)' }}
-              >
+            <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: 'rgba(29,185,84,0.12)' }}>
+              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: 'rgba(29,185,84,0.2)' }}>
                 <SearchIcon className="w-7 h-7" style={{ color: 'var(--sp-green)' }} />
               </div>
             </div>
-            {/* Decorative rings */}
-            <div
-              className="absolute inset-[-8px] rounded-full border opacity-30 animate-pulse"
-              style={{ borderColor: 'var(--sp-green)' }}
-            />
-            <div
-              className="absolute inset-[-18px] rounded-full border opacity-15 animate-pulse"
-              style={{ borderColor: 'var(--sp-green)', animationDelay: '0.3s' }}
-            />
+            <div className="absolute inset-[-8px] rounded-full border opacity-30 animate-pulse" style={{ borderColor: 'var(--sp-green)' }} />
+            <div className="absolute inset-[-18px] rounded-full border opacity-15 animate-pulse" style={{ borderColor: 'var(--sp-green)', animationDelay: '0.3s' }} />
           </div>
 
           <h3 className="text-white text-2xl font-bold mb-3 tracking-tight">
@@ -283,42 +260,35 @@ export const SearchPanel: React.FC = () => {
               : 'Search for tracks or albums and download them in pure, lossless FLAC quality — no account required.'}
           </p>
 
-          {/* Suggested chips */}
           {!hasSearched && (
             <div className="flex flex-wrap gap-2 justify-center mt-6">
-              {['Joji', 'The Weeknd', 'Taylor Swift', 'Starboy', 'Die For You'].map(suggestion => (
-                <button
-                  key={suggestion}
-                  onClick={() => setQuery(suggestion)}
-                  className="sp-chip text-sm"
-                >
-                  {suggestion}
-                </button>
+              {['Joji', 'The Weeknd', 'Taylor Swift', 'Starboy', 'Die For You'].map(s => (
+                <button key={s} onClick={() => setQuery(s)} className="sp-chip text-sm">{s}</button>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ── Loading skeleton ──────────────────────────────── */}
+      {/* ── Skeleton loading ──────────────────────────────── */}
       {loading && (
-        <div className="flex flex-col gap-2 animate-fade-in">
-          {Array.from({ length: 6 }).map((_, i) => (
+        <div className="flex flex-col gap-2 mt-2 animate-fade-in">
+          {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
               className="grid items-center gap-4 px-4 py-3 rounded-md"
               style={{ gridTemplateColumns: '2.5rem 1fr 5rem 7rem' }}
             >
-              <div className="sp-skeleton w-6 h-4 mx-auto rounded" />
+              <div className="sp-skeleton w-5 h-4 mx-auto rounded" />
               <div className="flex items-center gap-3">
                 <div className="sp-skeleton w-10 h-10 rounded shrink-0" />
                 <div className="flex flex-col gap-1.5 flex-1">
-                  <div className="sp-skeleton h-3.5 w-48 rounded" />
-                  <div className="sp-skeleton h-3 w-32 rounded" />
+                  <div className="sp-skeleton h-3.5 rounded" style={{ width: `${120 + (i % 3) * 40}px` }} />
+                  <div className="sp-skeleton h-3 rounded" style={{ width: `${80 + (i % 4) * 20}px` }} />
                 </div>
               </div>
-              <div className="sp-skeleton h-3 w-10 ml-auto rounded" />
-              <div className="sp-skeleton h-7 w-20 mx-auto rounded-full" />
+              <div className="sp-skeleton h-3 w-8 ml-auto rounded" />
+              <div className="sp-skeleton h-7 w-16 mx-auto rounded-full" />
             </div>
           ))}
         </div>
