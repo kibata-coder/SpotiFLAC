@@ -11,8 +11,6 @@ import { useAudioAnalysis } from "@/hooks/useAudioAnalysis";
 import type { AnalysisResult } from "@/types/api";
 import { loadAudioAnalysisPreferences } from "@/lib/audio-analysis-preferences";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
-import { GetFileSizes, ListAudioFilesInDir, SaveSpectrumImage, SelectAudioFiles, SelectFolder } from "../../wailsjs/go/main/App";
-import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 interface AudioAnalysisPageProps {
     onBack?: () => void;
 }
