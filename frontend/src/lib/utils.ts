@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { BrowserOpenURL } from "../../wailsjs/runtime/runtime";
 import type { Settings } from "./settings";
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
