@@ -2,9 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload, X, FileText, Trash2, AlertCircle, Music, Clock, Download } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import { ReadEmbeddedLyrics, SelectLyricsFiles, ExtractLyricsToLRC } from "../../wailsjs/go/main/App";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
-import { OnFileDrop, OnFileDropOff } from "../../wailsjs/runtime/runtime";
 interface LyricsFile {
     path: string;
     name: string;
