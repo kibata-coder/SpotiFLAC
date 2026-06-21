@@ -8,8 +8,6 @@ import { FolderOpen, RefreshCw, FileMusic, ChevronRight, ChevronDown, Pencil, Ey
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
-import { SelectFolder } from "../../wailsjs/go/main/App";
-import { backend } from "../../wailsjs/go/models";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { getSettings } from "@/lib/settings";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
