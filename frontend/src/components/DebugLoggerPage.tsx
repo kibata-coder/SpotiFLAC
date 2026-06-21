@@ -3,7 +3,6 @@ import { Trash2, Copy, Check, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { logger, type LogEntry } from "@/lib/logger";
 import { useDownloadQueueData } from "@/hooks/useDownloadQueueData";
-import { ExportFailedDownloads } from "../../wailsjs/go/main/App";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 const levelColors: Record<string, string> = {
     info: "text-blue-500",
