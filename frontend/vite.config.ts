@@ -1,19 +1,23 @@
-import path from "path";
-import fs from "fs";
-import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
-const wailsJsonPath = path.resolve(__dirname, "../wails.json");
-const wailsJson = JSON.parse(fs.readFileSync(wailsJsonPath, "utf-8"));
-const appVersion = wailsJson.info.productVersion;
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+// https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [react(), tailwindcss()],
-    resolve: {
-        alias: {
-            "@": path.resolve(__dirname, "./src"),
-        },
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
-    define: {
-        __APP_VERSION__: JSON.stringify(appVersion),
-    },
+  },
+  // Ensure we build standard web assets into the "dist" folder
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
+  // Optional: Clean up standard development server settings
+  server: {
+    port: 3000,
+    strictPort: true,
+  }
 });
