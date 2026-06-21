@@ -13,8 +13,8 @@ RUN go mod download
 # Copy the rest of the source code
 COPY . .
 
-# Build the HTTP server binary
-RUN go build -o server server.go
+# Build the HTTP server binary (Notice the dot at the end instead of server.go)
+RUN go build -o server .
 
 # Runtime Stage
 FROM alpine:latest
