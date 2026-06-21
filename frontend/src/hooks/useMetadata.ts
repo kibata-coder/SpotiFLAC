@@ -1,9 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { fetchSpotifyMetadata } from "@/lib/api";
 import { toastWithSound as toast } from "@/lib/toast-with-sound";
 import { logger } from "@/lib/logger";
-import { AddFetchHistory, SearchSpotifyByType } from "../../wailsjs/go/main/App";
-import { EventsOff, EventsOn } from "../../wailsjs/runtime/runtime";
 import type { SpotifyMetadataResponse } from "@/types/api";
 export function useMetadata() {
     const [loading, setLoading] = useState(false);
