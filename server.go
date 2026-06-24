@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+	"path/filepath"
 	"context"
 	"encoding/json"
 	"log"
@@ -26,6 +28,10 @@ func main() {
 	// 3. Register our web endpoints
 	http.HandleFunc("/api/search", handleSearch)
 	http.HandleFunc("/api/download", handleDownload)
+
+	// 4. Serve the compiled frontend as static files
+	fs := http.FileServer(http.Dir("./frontend/dist"))
+	http.Handle("/", fs)
 
 	log.Printf("Railway Web Server active on port %s...\n", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
@@ -94,13 +100,35 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 	// 2. Call the engine and capture the response/error
 	resp, err := engine.DownloadTrack(reqData)
 	
-	w.Header().Set("Content-Type", "application/json")
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(resp)
+		return
 	}
+
+	if !resp.Success || resp.File == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	// 3. Stream the file back to the client
+	file, err := os.Open(resp.File)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to open downloaded file"})
+		return
+	}
+	defer file.Close()
+	defer os.Remove(resp.File) // Clean up the file from the server after sending
+
+	// Set headers for file download
+	w.Header().Set("Content-Type", "audio/flac")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+filepath.Base(resp.File)+"\"")
 	
-	// Send the detailed response back to the frontend
-	json.NewEncoder(w).Encode(resp)
+	// Stream the file
+	io.Copy(w, file)
 }
