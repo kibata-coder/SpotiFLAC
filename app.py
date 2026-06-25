@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, send_file, render_template
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
+from ytmusicapi import YTMusic
 import yt_dlp
 import os
 import tempfile
@@ -11,23 +10,12 @@ app = Flask(__name__)
 # Enable CORS for the React frontend
 CORS(app)
 
-# Spotify API configuration
-SPOTIPY_CLIENT_ID = os.environ.get('SPOTIPY_CLIENT_ID', 'YOUR_SPOTIFY_CLIENT_ID')
-SPOTIPY_CLIENT_SECRET = os.environ.get('SPOTIPY_CLIENT_SECRET', 'YOUR_SPOTIFY_CLIENT_SECRET')
-
-# If environment variables are set, ensure spotipy can find them in os.environ
-if SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_ID != 'YOUR_SPOTIFY_CLIENT_ID':
-    os.environ['SPOTIPY_CLIENT_ID'] = SPOTIPY_CLIENT_ID
-if SPOTIPY_CLIENT_SECRET and SPOTIPY_CLIENT_SECRET != 'YOUR_SPOTIFY_CLIENT_SECRET':
-    os.environ['SPOTIPY_CLIENT_SECRET'] = SPOTIPY_CLIENT_SECRET
-
-# Initialize Spotipy client if credentials are valid
+# Initialize YTMusic without authentication (perfect for search)
 try:
-    auth_manager = SpotifyClientCredentials()
-    sp = spotipy.Spotify(auth_manager=auth_manager)
+    ytmusic = YTMusic()
 except Exception as e:
-    print(f"Warning: Spotify not configured correctly yet. {e}")
-    sp = None
+    print(f"Warning: YTMusic not configured correctly yet. {e}")
+    ytmusic = None
 
 
 @app.route('/')
@@ -39,26 +27,38 @@ def index():
 def search():
     data = request.json or {}
     query = data.get('query')
-    search_type = data.get('search_type', 'track')
     limit = data.get('limit', 20)
     
     if not query:
         return jsonify({'error': 'Missing query'}), 400
     
-    if not sp:
-        return jsonify({'error': 'Spotify API not configured on server.'}), 500
+    if not ytmusic:
+        return jsonify({'error': 'YTMusic API not configured on server.'}), 500
 
     try:
-        results = sp.search(q=query, type='track', limit=limit)
+        results = ytmusic.search(query=query, filter="songs", limit=limit)
         tracks = []
-        for track in results['tracks']['items']:
-            image_url = track['album']['images'][0]['url'] if track['album']['images'] else ''
-            artists_str = ", ".join([a['name'] for a in track['artists']])
+        for track in results:
+            if track.get('resultType') != 'song':
+                continue
+                
+            # Get the best resolution image
+            thumbnails = track.get('thumbnails', [])
+            image_url = thumbnails[-1]['url'] if thumbnails else ''
+            
+            # Extract artists safely
+            artists = track.get('artists', [])
+            artists_str = ", ".join([a['name'] for a in artists]) if artists else "Unknown Artist"
+            
+            # Extract album safely
+            album = track.get('album')
+            album_name = album['name'] if album else "Unknown Album"
+            
             tracks.append({
-                'id': track['id'],
-                'name': track['name'],
+                'id': track['videoId'],
+                'name': track['title'],
                 'artists': artists_str,
-                'album': track['album']['name'],
+                'album': album_name,
                 'cover': image_url
             })
         return jsonify(tracks)
@@ -66,17 +66,10 @@ def search():
         return jsonify({'error': str(e)}), 500
 
 
-def download_audio(spotify_id):
-    if not sp:
-        raise Exception('Spotify API not configured on server.')
+def download_audio(video_id):
+    if not video_id:
+        raise Exception('Missing video_id')
         
-    # Get track info from Spotify
-    track = sp.track(spotify_id)
-    track_title = track['name']
-    artist = track['artists'][0]['name']
-    
-    search_query = f"{track_title} {artist} audio"
-    
     # We use a temporary directory to store the file
     temp_dir = tempfile.gettempdir()
     file_id = str(uuid.uuid4())
@@ -88,15 +81,32 @@ def download_audio(spotify_id):
         'noplaylist': True,
         'quiet': True,
     }
+    
+    # We can fetch the track details directly from YouTube Music since we have the videoId
+    track_title = "Unknown Track"
+    artist = "Unknown Artist"
+    try:
+        if ytmusic:
+            song_info = ytmusic.get_song(video_id)
+            if 'videoDetails' in song_info:
+                track_title = song_info['videoDetails']['title']
+                artist = song_info['videoDetails']['author']
+    except Exception as e:
+        print(f"Warning: Could not fetch exact title/artist for {video_id}: {e}")
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        # Search youtube and extract info
-        info = ydl.extract_info(f"ytsearch1:{search_query}", download=True)
-        if not info or 'entries' not in info or len(info['entries']) == 0:
-            raise Exception('Track not found on YouTube')
+        # We can pass the URL directly since we know the videoId!
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        info = ydl.extract_info(url, download=True)
+        if not info:
+            raise Exception('Failed to extract info from YouTube')
         
-        entry = info['entries'][0]
-        ext = entry.get('ext', 'webm')
+        # If we didn't get title/artist earlier, we can get it from yt-dlp info
+        if track_title == "Unknown Track":
+            track_title = info.get('title', track_title)
+            artist = info.get('uploader', artist)
+            
+        ext = info.get('ext', 'webm')
         
         # Find the generated audio file
         expected_filepath = os.path.join(temp_dir, f"{file_id}.{ext}")
@@ -106,10 +116,10 @@ def download_audio(spotify_id):
 @app.route('/api/download', methods=['POST'])
 def download():
     data = request.json or {}
-    spotify_id = data.get('spotify_id')
+    spotify_id = data.get('spotify_id') # The frontend still sends this as "spotify_id", but it's now actually the YouTube videoId!
     
     if not spotify_id:
-        return jsonify({'error': 'Missing spotify_id'}), 400
+        return jsonify({'error': 'Missing spotify_id (videoId)'}), 400
 
     try:
         expected_filepath, track_title, artist, ext = download_audio(spotify_id)
@@ -132,10 +142,10 @@ def download():
 
 @app.route('/api/stream', methods=['GET'])
 def stream():
-    spotify_id = request.args.get('spotify_id')
+    spotify_id = request.args.get('spotify_id') # This is now the YouTube videoId
     
     if not spotify_id:
-        return jsonify({'error': 'Missing spotify_id'}), 400
+        return jsonify({'error': 'Missing spotify_id (videoId)'}), 400
 
     try:
         expected_filepath, track_title, artist, ext = download_audio(spotify_id)
