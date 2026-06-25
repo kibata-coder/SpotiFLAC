@@ -8,15 +8,15 @@ import uuid
 
 app = Flask(__name__)
 
-# --- Configuration ---
 # Spotify API configuration
-# (Please replace these placeholders with your actual Spotify credentials)
-SPOTIPY_CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'
-SPOTIPY_CLIENT_SECRET = 'YOUR_SPOTIFY_CLIENT_SECRET'
+SPOTIPY_CLIENT_ID = os.environ.get('SPOTIPY_CLIENT_ID', 'YOUR_SPOTIFY_CLIENT_ID')
+SPOTIPY_CLIENT_SECRET = os.environ.get('SPOTIPY_CLIENT_SECRET', 'YOUR_SPOTIFY_CLIENT_SECRET')
 
-# Set environment variables for spotipy
-os.environ['SPOTIPY_CLIENT_ID'] = SPOTIPY_CLIENT_ID
-os.environ['SPOTIPY_CLIENT_SECRET'] = SPOTIPY_CLIENT_SECRET
+# If environment variables are set, ensure spotipy can find them in os.environ
+if SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_ID != 'YOUR_SPOTIFY_CLIENT_ID':
+    os.environ['SPOTIPY_CLIENT_ID'] = SPOTIPY_CLIENT_ID
+if SPOTIPY_CLIENT_SECRET and SPOTIPY_CLIENT_SECRET != 'YOUR_SPOTIFY_CLIENT_SECRET':
+    os.environ['SPOTIPY_CLIENT_SECRET'] = SPOTIPY_CLIENT_SECRET
 
 # Initialize Spotipy client if credentials are valid
 try:
