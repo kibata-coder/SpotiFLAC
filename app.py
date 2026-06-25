@@ -80,6 +80,11 @@ def download_audio(video_id):
         'outtmpl': output_template,
         'noplaylist': True,
         'quiet': True,
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios']
+            }
+        }
     }
     
     # We can fetch the track details directly from YouTube Music since we have the videoId
