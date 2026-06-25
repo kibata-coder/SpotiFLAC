@@ -5,8 +5,11 @@ import yt_dlp
 import os
 import tempfile
 import uuid
+from flask_cors import CORS
 
 app = Flask(__name__)
+# Enable CORS for the React frontend
+CORS(app)
 
 # Spotify API configuration
 SPOTIPY_CLIENT_ID = os.environ.get('SPOTIPY_CLIENT_ID', 'YOUR_SPOTIFY_CLIENT_ID')
@@ -32,9 +35,13 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/search', methods=['GET'])
+@app.route('/api/search', methods=['POST'])
 def search():
-    query = request.args.get('query')
+    data = request.json or {}
+    query = data.get('query')
+    search_type = data.get('search_type', 'track')
+    limit = data.get('limit', 20)
+    
     if not query:
         return jsonify({'error': 'Missing query'}), 400
     
@@ -42,31 +49,32 @@ def search():
         return jsonify({'error': 'Spotify API not configured on server.'}), 500
 
     try:
-        results = sp.search(q=query, type='track', limit=10)
+        results = sp.search(q=query, type='track', limit=limit)
         tracks = []
         for track in results['tracks']['items']:
             image_url = track['album']['images'][0]['url'] if track['album']['images'] else ''
+            artists_str = ", ".join([a['name'] for a in track['artists']])
             tracks.append({
                 'id': track['id'],
-                'title': track['name'],
-                'artist': track['artists'][0]['name'],
+                'name': track['name'],
+                'artists': artists_str,
                 'album': track['album']['name'],
-                'image': image_url,
-                'preview_url': track['preview_url']
+                'cover': image_url
             })
         return jsonify(tracks)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/download', methods=['GET'])
-def download():
-    track_title = request.args.get('track_title')
-    artist = request.args.get('artist')
+def download_audio(spotify_id):
+    if not sp:
+        raise Exception('Spotify API not configured on server.')
+        
+    # Get track info from Spotify
+    track = sp.track(spotify_id)
+    track_title = track['name']
+    artist = track['artists'][0]['name']
     
-    if not track_title or not artist:
-        return jsonify({'error': 'Missing track_title or artist'}), 400
-
     search_query = f"{track_title} {artist} audio"
     
     # We use a temporary directory to store the file
@@ -81,32 +89,69 @@ def download():
         'quiet': True,
     }
 
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        # Search youtube and extract info
+        info = ydl.extract_info(f"ytsearch1:{search_query}", download=True)
+        if not info or 'entries' not in info or len(info['entries']) == 0:
+            raise Exception('Track not found on YouTube')
+        
+        entry = info['entries'][0]
+        ext = entry.get('ext', 'webm')
+        
+        # Find the generated audio file
+        expected_filepath = os.path.join(temp_dir, f"{file_id}.{ext}")
+        return expected_filepath, track_title, artist, ext
+
+
+@app.route('/api/download', methods=['POST'])
+def download():
+    data = request.json or {}
+    spotify_id = data.get('spotify_id')
+    
+    if not spotify_id:
+        return jsonify({'error': 'Missing spotify_id'}), 400
+
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Search youtube and extract info
-            info = ydl.extract_info(f"ytsearch1:{search_query}", download=True)
-            if not info or 'entries' not in info or len(info['entries']) == 0:
-                return jsonify({'error': 'Track not found on YouTube'}), 404
-            
-            entry = info['entries'][0]
-            ext = entry.get('ext', 'webm')
-            
-            # Find the generated audio file
-            expected_filepath = os.path.join(temp_dir, f"{file_id}.{ext}")
-            
-            if os.path.exists(expected_filepath):
-                # Send the file to the user
-                return send_file(
-                    expected_filepath,
-                    as_attachment=True,
-                    download_name=f"{track_title} - {artist}.{ext}",
-                    mimetype=f'audio/{ext}'
-                )
-            else:
-                return jsonify({'error': 'File conversion failed'}), 500
+        expected_filepath, track_title, artist, ext = download_audio(spotify_id)
+        
+        if os.path.exists(expected_filepath):
+            # Send the file to the user
+            return send_file(
+                expected_filepath,
+                as_attachment=True,
+                download_name=f"{track_title} - {artist}.{ext}",
+                mimetype=f'audio/{ext}'
+            )
+        else:
+            return jsonify({'error': 'File conversion failed'}), 500
 
     except Exception as e:
         print(f"Error during download: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/stream', methods=['GET'])
+def stream():
+    spotify_id = request.args.get('spotify_id')
+    
+    if not spotify_id:
+        return jsonify({'error': 'Missing spotify_id'}), 400
+
+    try:
+        expected_filepath, track_title, artist, ext = download_audio(spotify_id)
+        
+        if os.path.exists(expected_filepath):
+            # Send the file without as_attachment so it streams in browser
+            return send_file(
+                expected_filepath,
+                as_attachment=False,
+                mimetype=f'audio/{ext}'
+            )
+        else:
+            return jsonify({'error': 'File conversion failed'}), 500
+
+    except Exception as e:
+        print(f"Error during stream: {e}")
         return jsonify({'error': str(e)}), 500
 
 
