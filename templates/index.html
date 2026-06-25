@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Downloader</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Music Downloader</h1>
+            <p>Search via Spotify, Download via YouTube.</p>
+        </header>
+
+        <main>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search for a song..." onkeypress="handleKeyPress(event)">
+                <button onclick="searchTracks()">Search</button>
+            </div>
+            
+            <div id="loading" class="hidden">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+
+            <div id="results" class="results-grid">
+                <!-- Tracks will be dynamically injected here -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                searchTracks();
+            }
+        }
+
+        async function searchTracks() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+            
+            resultsDiv.innerHTML = '';
+            loadingDiv.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/search?query=${encodeURIComponent(query)}`);
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Failed to search');
+                }
+                
+                const tracks = await response.json();
+                renderTracks(tracks);
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            } finally {
+                loadingDiv.classList.add('hidden');
+            }
+        }
+
+        function renderTracks(tracks) {
+            const resultsDiv = document.getElementById('results');
+            
+            if (tracks.length === 0) {
+                resultsDiv.innerHTML = '<p class="no-results">No tracks found.</p>';
+                return;
+            }
+
+            tracks.forEach(track => {
+                const card = document.createElement('div');
+                card.className = 'track-card';
+                
+                card.innerHTML = `
+                    <img src="${track.image || 'https://via.placeholder.com/150'}" alt="${track.title} cover" class="track-image">
+                    <div class="track-info">
+                        <h3 class="track-title">${track.title}</h3>
+                        <p class="track-artist">${track.artist}</p>
+                    </div>
+                    <div class="track-actions">
+                        <button class="btn-download" onclick="downloadTrack('${track.title.replace(/'/g, "\\'")}', '${track.artist.replace(/'/g, "\\'")}')">
+                            Download
+                        </button>
+                    </div>
+                `;
+                resultsDiv.appendChild(card);
+            });
+        }
+
+        function downloadTrack(title, artist) {
+            // Inform the user since download takes a moment
+            alert(`Starting download for ${title} by ${artist}. This may take a moment while it converts!`);
+            
+            // Build the download URL
+            const downloadUrl = `/download?track_title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`;
+            
+            // Create an invisible anchor tag to trigger the browser's download
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
+</body>
+</html>
