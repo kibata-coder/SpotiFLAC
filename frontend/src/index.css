@@ -1,0 +1,488 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ── Tailwind theme tokens ────────────────────────────────────── */
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* ── Spotify-exact CSS variables ──────────────────────────────── */
+:root {
+  --radius: 0.5rem;
+
+  /* Spotify design tokens */
+  --sp-bg:          #0a0a0a;
+  --sp-surface:     #121212;
+  --sp-elevated:    #1a1a1a;
+  --sp-hover:       #282828;
+  --sp-press:       #3e3e3e;
+  --sp-border:      rgba(255,255,255,0.08);
+  --sp-green:       #1DB954;
+  --sp-green-hover: #1ed760;
+  --sp-green-dim:   rgba(29,185,84,0.12);
+  --sp-white:       #FFFFFF;
+  --sp-subdued:     #b3b3b3;
+  --sp-muted:       #535353;
+
+  /* shadcn token → Spotify palette */
+  --background:           #0a0a0a;
+  --foreground:           #FFFFFF;
+  --card:                 #121212;
+  --card-foreground:      #FFFFFF;
+  --popover:              #282828;
+  --popover-foreground:   #FFFFFF;
+  --primary:              #1DB954;
+  --primary-foreground:   #000000;
+  --secondary:            #1a1a1a;
+  --secondary-foreground: #FFFFFF;
+  --muted:                #1a1a1a;
+  --muted-foreground:     #b3b3b3;
+  --accent:               #282828;
+  --accent-foreground:    #FFFFFF;
+  --destructive:          #e91429;
+  --border:               rgba(255,255,255,0.08);
+  --input:                rgba(255,255,255,0.1);
+  --ring:                 #1DB954;
+}
+
+.dark {
+  --background:           #0a0a0a;
+  --foreground:           #FFFFFF;
+  --card:                 #121212;
+  --card-foreground:      #FFFFFF;
+  --popover:              #282828;
+  --popover-foreground:   #FFFFFF;
+  --primary:              #1DB954;
+  --primary-foreground:   #000000;
+  --secondary:            #1a1a1a;
+  --secondary-foreground: #FFFFFF;
+  --muted:                #1a1a1a;
+  --muted-foreground:     #b3b3b3;
+  --accent:               #282828;
+  --accent-foreground:    #FFFFFF;
+  --destructive:          #e91429;
+  --border:               rgba(255,255,255,0.08);
+  --input:                rgba(255,255,255,0.1);
+  --ring:                 #1DB954;
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+@layer base {
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--sp-bg);
+    color: #fff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono) !important;
+  }
+
+  ::selection {
+    background: rgba(29, 185, 84, 0.3);
+    color: #fff;
+  }
+}
+
+/* ── Keyframe animations ──────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseGreenRing {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(29, 185, 84, 0.5); }
+  50%       { box-shadow: 0 0 0 6px rgba(29, 185, 84, 0); }
+}
+
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+@keyframes ping-green {
+  75%, 100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* ── Animation utilities ──────────────────────────────────────── */
+.animate-fade-in       { animation: fadeIn 0.3s ease both; }
+.animate-fade-in-scale { animation: fadeInScale 0.2s ease both; }
+.animate-slide-in-left { animation: slideInLeft 0.25s ease both; }
+.animate-pulse-green   { animation: pulseGreenRing 2s ease-in-out infinite; }
+
+/* ── Glassmorphism ────────────────────────────────────────────── */
+.glass {
+  background: rgba(18, 18, 18, 0.88);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-subtle {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Spotify gradient wash ────────────────────────────────────── */
+.sp-gradient-green {
+  background: linear-gradient(180deg, rgba(28, 65, 46, 0.85) 0%, rgba(10, 10, 10, 0) 100%);
+}
+
+/* ── Spotify nav items ────────────────────────────────────────── */
+.sp-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #b3b3b3;
+  transition: color 0.1s ease, background 0.1s ease;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  position: relative;
+}
+.sp-nav-item:hover { color: #fff; }
+.sp-nav-item.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Spotify track rows ───────────────────────────────────────── */
+.sp-track-row {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  position: relative;
+}
+.sp-track-row:hover { background: rgba(255, 255, 255, 0.07); }
+
+.sp-track-row .sp-row-num-wrap {
+  position: relative;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sp-track-row .sp-row-num {
+  font-size: 0.9375rem;
+  color: #b3b3b3;
+  transition: opacity 0.1s ease;
+  position: absolute;
+}
+.sp-track-row:hover .sp-row-num { opacity: 0; }
+.sp-track-row .sp-row-play {
+  opacity: 0;
+  color: #fff;
+  transition: opacity 0.1s ease;
+  position: absolute;
+}
+.sp-track-row:hover .sp-row-play { opacity: 1; }
+
+.sp-track-row .sp-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.sp-track-row:hover .sp-row-actions { opacity: 1; }
+
+/* ── Spotify-style primary button ────────────────────────────── */
+.sp-btn-primary {
+  background: #1DB954;
+  color: #000;
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.04em;
+  padding: 0.75rem 2rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.1s ease, transform 0.1s ease, box-shadow 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+.sp-btn-primary:hover {
+  background: #1ed760;
+  transform: scale(1.04);
+  box-shadow: 0 4px 16px rgba(29, 185, 84, 0.35);
+}
+.sp-btn-primary:active { transform: scale(0.98); }
+.sp-btn-primary:disabled {
+  opacity: 0.45;
+  transform: none;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Spotify-style outline button ────────────────────────────── */
+.sp-btn-outline {
+  background: transparent;
+  color: #b3b3b3;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: color 0.1s ease, border-color 0.1s ease, transform 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sp-btn-outline:hover {
+  color: #fff;
+  border-color: #fff;
+  transform: scale(1.02);
+}
+
+/* ── Spotify search input ─────────────────────────────────────── */
+.sp-search-input {
+  background: #242424;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  color: #fff;
+  padding: 0.75rem 1.25rem 0.75rem 3rem;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  transition: all 0.15s ease;
+  outline: none;
+  width: 100%;
+}
+.sp-search-input::placeholder { color: #6a6a6a; }
+.sp-search-input:hover { background: #2a2a2a; }
+.sp-search-input:focus {
+  background: #2a2a2a;
+  border-color: #fff;
+}
+
+/* ── Cover art ────────────────────────────────────────────────── */
+.sp-cover {
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.sp-cover-lg {
+  border-radius: 8px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.9), 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Chip / pill ──────────────────────────────────────────────── */
+.sp-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  transition: background 0.1s ease, border-color 0.1s ease;
+  cursor: pointer;
+}
+.sp-chip:hover { background: rgba(255, 255, 255, 0.14); }
+.sp-chip.active {
+  background: #fff;
+  color: #000;
+}
+
+/* ── Explicit badge ───────────────────────────────────────────── */
+.sp-explicit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #000;
+  font-size: 9px;
+  font-weight: 900;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+
+/* ── Skeleton shimmer ─────────────────────────────────────────── */
+.sp-skeleton {
+  background: linear-gradient(90deg, #1a1a1a 25%, #282828 50%, #1a1a1a 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────── */
+.sp-tab {
+  padding: 0.5rem 0;
+  margin-right: 1.5rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #b3b3b3;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.1s ease, border-color 0.1s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+.sp-tab:hover { color: #fff; }
+.sp-tab.active {
+  color: #fff;
+  border-bottom-color: #fff;
+}
+
+/* ── Card ─────────────────────────────────────────────────────── */
+.sp-card {
+  background: var(--sp-elevated);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+.sp-card:hover {
+  background: #222;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Spotify-style section heading ───────────────────────────── */
+.sp-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.32); }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.14);
+  border-radius: 99px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.28); }
+
+/* ── Reduced motion ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Sonner toasts ────────────────────────────────────────────── */
+[data-sonner-toast] {
+  background: #282828 !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 10px !important;
+  color: #fff !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+  font-family: var(--font-sans) !important;
+}
+
+[data-sonner-toast][data-type="success"] { border-color: rgba(29,185,84,0.3) !important; }
+[data-sonner-toast][data-type="success"] [data-icon] { color: #1DB954 !important; }
+[data-sonner-toast][data-type="success"] [data-description],
+[data-sonner-toast][data-type="success"] [data-description] * { color: rgba(29,185,84,0.85) !important; }
+
+[data-sonner-toast][data-type="error"] { border-color: rgba(233,20,41,0.3) !important; }
+[data-sonner-toast][data-type="error"] [data-icon] { color: #e91429 !important; }
+[data-sonner-toast][data-type="error"] [data-description],
+[data-sonner-toast][data-type="error"] [data-description] * { color: rgba(233,20,41,0.85) !important; }
+
+[data-sonner-toast][data-type="warning"] { border-color: rgba(255,172,51,0.3) !important; }
+[data-sonner-toast][data-type="warning"] [data-icon] { color: #ffac33 !important; }
+[data-sonner-toast][data-type="warning"] [data-description],
+[data-sonner-toast][data-type="warning"] [data-description] * { color: rgba(255,172,51,0.85) !important; }
+
+[data-sonner-toast][data-type="info"] { border-color: rgba(79,157,235,0.3) !important; }
+[data-sonner-toast][data-type="info"] [data-icon] { color: #4f9deb !important; }
+[data-sonner-toast][data-type="info"] [data-description],
+[data-sonner-toast][data-type="info"] [data-description] * { color: rgba(79,157,235,0.85) !important; }
+
+[data-sonner-toast] [data-description],
+[data-sonner-toast] [data-description] * { opacity: 1 !important; }
