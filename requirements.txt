@@ -1,6 +1,6 @@
 Flask==3.0.3
 requests==2.32.3
-yt-dlp==2024.5.27
+yt-dlp
 ytmusicapi==1.7.3
 gunicorn==22.0.0
 flask-cors
