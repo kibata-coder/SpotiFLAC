@@ -173,7 +173,7 @@ export const SearchPanel: React.FC = () => {
                 </span>
                 <span 
                   className="sp-row-play" 
-                  onClick={() => playTrack(item, getStreamUrl(item.id, 'tidal'))}
+                  onClick={() => playTrack(item, `https://www.youtube.com/watch?v=${item.id}`)}
                 >
                   <Play className="w-4 h-4" />
                 </span>
@@ -214,7 +214,7 @@ export const SearchPanel: React.FC = () => {
               <div className="sp-row-actions justify-center gap-2 flex">
                 <button
                   title="Play Preview / Stream"
-                  onClick={() => playTrack(item, getStreamUrl(item.id, 'tidal'))}
+                  onClick={() => playTrack(item, `https://www.youtube.com/watch?v=${item.id}`)}
                   className="sp-btn-outline flex items-center justify-center rounded-full w-8 h-8 p-0 border-zinc-600 hover:border-white text-zinc-300 hover:text-white"
                 >
                   <Play className="w-4 h-4 ml-0.5 fill-current" />

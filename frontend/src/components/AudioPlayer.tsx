@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2 } from 'lucide-react';
+import ReactPlayer from 'react-player';
 import type { SearchResult } from '../lib/api';
 
 interface AudioPlayerProps {
@@ -10,33 +11,16 @@ interface AudioPlayerProps {
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({ currentTrack, isPlaying, onPlayPause, streamUrl }) => {
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const playerRef = useRef<ReactPlayer>(null);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
 
-  useEffect(() => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch(console.error);
-      } else {
-        audioRef.current.pause();
-      }
-    }
-  }, [isPlaying, streamUrl]);
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setProgress(audioRef.current.currentTime);
-      setDuration(audioRef.current.duration || 0);
-    }
-  };
-
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = Number(e.target.value);
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
+    if (playerRef.current) {
+      playerRef.current.seekTo(time, 'seconds');
       setProgress(time);
     }
   };
@@ -44,21 +28,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ currentTrack, isPlayin
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const vol = Number(e.target.value);
     setVolume(vol);
-    if (audioRef.current) {
-      audioRef.current.volume = vol;
-      setIsMuted(vol === 0);
-    }
+    setIsMuted(vol === 0);
   };
 
   const toggleMute = () => {
-    if (audioRef.current) {
-      const newMuted = !isMuted;
-      audioRef.current.muted = newMuted;
-      setIsMuted(newMuted);
-      if (!newMuted && volume === 0) {
-        setVolume(1);
-        audioRef.current.volume = 1;
-      }
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    if (!newMuted && volume === 0) {
+      setVolume(1);
     }
   };
 
@@ -74,12 +51,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ currentTrack, isPlayin
   return (
     <div className="fixed bottom-0 left-0 right-0 h-24 bg-[#181818] border-t border-[#282828] px-4 flex items-center justify-between z-50">
       {streamUrl && (
-        <audio
-          ref={audioRef}
-          src={streamUrl}
-          onTimeUpdate={handleTimeUpdate}
+        <ReactPlayer
+          ref={playerRef}
+          url={streamUrl}
+          playing={isPlaying}
+          volume={volume}
+          muted={isMuted}
+          onProgress={({ playedSeconds }) => setProgress(playedSeconds)}
+          onDuration={(d) => setDuration(d)}
           onEnded={() => onPlayPause()}
-          onLoadedMetadata={handleTimeUpdate}
+          width="0"
+          height="0"
+          config={{
+            youtube: {
+              playerVars: { showinfo: 0, controls: 0 }
+            }
+          }}
+          style={{ display: 'none' }}
         />
       )}
 
