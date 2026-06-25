@@ -19,7 +19,7 @@ export function Header({ version, hasUpdate, releaseDate }: HeaderProps) {
         className="shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2"
         style={{ '--tw-ring-color': 'var(--sp-green)' } as React.CSSProperties}
         onClick={() => window.location.reload()}
-        aria-label="Reload SpotiFLAC"
+        aria-label="Reload SoudMusic"
       >
         <img src="/icon.svg" alt="" className="w-9 h-9" />
       </button>
@@ -31,7 +31,7 @@ export function Header({ version, hasUpdate, releaseDate }: HeaderProps) {
           className="cursor-pointer rounded border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 transition-opacity hover:opacity-80"
           onClick={() => window.location.reload()}
         >
-          SpotiFLAC
+          SoudMusic
         </button>
       </h1>
 
@@ -41,7 +41,7 @@ export function Header({ version, hasUpdate, releaseDate }: HeaderProps) {
           <TooltipTrigger asChild>
             <button
               type="button"
-              onClick={() => openExternal("https://github.com/spotbye/SpotiFLAC/releases")}
+              onClick={() => openExternal("https://github.com/spotbye/SoudMusic/releases")}
               className="cursor-pointer hover:opacity-80 transition-opacity"
             >
               <span

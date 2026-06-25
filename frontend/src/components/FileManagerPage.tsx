@@ -56,7 +56,7 @@ const FORMAT_PRESETS: Record<string, {
     "disc-track-title-artist": { label: "Disc-Track. Title - Artist", template: "{disc}-{track}. {title} - {artist}" },
     "custom": { label: "Custom...", template: "{title} - {artist}" },
 };
-const STORAGE_KEY = "spotiflac_file_manager_state";
+const STORAGE_KEY = "soudmusic_file_manager_state";
 const DEFAULT_PRESET = "title-artist";
 const DEFAULT_CUSTOM_FORMAT = "{title} - {artist}";
 function formatFileSize(bytes: number): string {

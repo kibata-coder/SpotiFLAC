@@ -6,29 +6,29 @@ export interface ApiSource {
     name: string;
     url: string;
 }
-interface SpotiFLACNextSource {
+interface SoudMusicNextSource {
     id: string;
     name: string;
     statusKey?: string;
     statusPrefix?: string;
 }
-type SpotiFLACNextStatusResponse = Partial<Record<string, string>>;
+type SoudMusicNextStatusResponse = Partial<Record<string, string>>;
 export const API_SOURCES: ApiSource[] = [
     { id: "tidal", type: "tidal", name: "Tidal", url: "" },
     { id: "qobuz", type: "qobuz", name: "Qobuz", url: "" },
     { id: "amazon", type: "amazon", name: "Amazon Music", url: "" },
 ];
-export const SPOTIFLAC_NEXT_SOURCES: SpotiFLACNextSource[] = [
+export const SOUDMUSIC_NEXT_SOURCES: SoudMusicNextSource[] = [
     { id: "tidal", name: "Tidal", statusPrefix: "tidal_" },
     { id: "qobuz", name: "Qobuz", statusPrefix: "qobuz_" },
     { id: "amazon", name: "Amazon Music", statusPrefix: "amazon_" },
     { id: "deezer", name: "Deezer", statusPrefix: "deezer_" },
     { id: "apple", name: "Apple Music", statusKey: "apple" },
 ];
-const SPOTIFLAC_STATUS_URL = "https://gist.githubusercontent.com/afkarxyz/6e57cd362cbd67f889e3a91a76254a5e/raw";
-const SPOTIFLAC_CURRENT_STATUS_URL = "https://gist.githubusercontent.com/afkarxyz/7e392bc94ec2faaf74ef7d80025636eb/raw";
-const SPOTIFLAC_STATUS_MAX_ATTEMPTS = 3;
-const SPOTIFLAC_STATUS_RETRY_DELAY_MS = 1200;
+const SOUDMUSIC_STATUS_URL = "https://gist.githubusercontent.com/afkarxyz/6e57cd362cbd67f889e3a91a76254a5e/raw";
+const SOUDMUSIC_CURRENT_STATUS_URL = "https://gist.githubusercontent.com/afkarxyz/7e392bc94ec2faaf74ef7d80025636eb/raw";
+const SOUDMUSIC_STATUS_MAX_ATTEMPTS = 3;
+const SOUDMUSIC_STATUS_RETRY_DELAY_MS = 1200;
 const LogStatusConsole = (level: string, message: string): Promise<void> => (window as any)["go"]["main"]["App"]["LogStatusConsole"](level, message);
 type ApiStatusState = {
     checkingSources: Record<string, boolean>;
@@ -42,8 +42,8 @@ let apiStatusState: ApiStatusState = {
 };
 let activeCheckCurrentOnly: Promise<void> | null = null;
 let activeCheckNextOnly: Promise<void> | null = null;
-let activeStatusPayloadFetch: Promise<SpotiFLACNextStatusResponse> | null = null;
-let activeCurrentStatusPayloadFetch: Promise<SpotiFLACNextStatusResponse> | null = null;
+let activeStatusPayloadFetch: Promise<SoudMusicNextStatusResponse> | null = null;
+let activeCurrentStatusPayloadFetch: Promise<SoudMusicNextStatusResponse> | null = null;
 const activeSourceChecks = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
 function emitApiStatusChange() {
@@ -72,7 +72,7 @@ function logStatusError(message: string): void {
 function anyNextVariantUp(values: Array<string | undefined>): ApiCheckStatus {
     return values.some((value) => value === "up") ? "online" : "offline";
 }
-function getNextSourceValues(payload: SpotiFLACNextStatusResponse, source: SpotiFLACNextSource): string[] {
+function getNextSourceValues(payload: SoudMusicNextStatusResponse, source: SoudMusicNextSource): string[] {
     if (source.statusKey) {
         const value = payload[source.statusKey];
         return typeof value === "string" ? [value] : [];
@@ -89,7 +89,7 @@ function getNextSourceValues(payload: SpotiFLACNextStatusResponse, source: Spoti
     return values;
 }
 function getSafeNextStatusesFallback(currentStatuses: Record<string, ApiCheckStatus>): Record<string, ApiCheckStatus> {
-    return SPOTIFLAC_NEXT_SOURCES.reduce<Record<string, ApiCheckStatus>>((acc, source) => {
+    return SOUDMUSIC_NEXT_SOURCES.reduce<Record<string, ApiCheckStatus>>((acc, source) => {
         const current = currentStatuses[source.id];
         acc[source.id] = current === "online" || current === "offline" ? current : "idle";
         return acc;
@@ -101,45 +101,45 @@ function hasCurrentResults(): boolean {
         return status === "online" || status === "offline";
     });
 }
-function hasSpotiFLACNextResults(): boolean {
-    return SPOTIFLAC_NEXT_SOURCES.some((source) => {
+function hasSoudMusicNextResults(): boolean {
+    return SOUDMUSIC_NEXT_SOURCES.some((source) => {
         const status = apiStatusState.nextStatuses[source.id];
         return status === "online" || status === "offline";
     });
 }
-async function fetchStatusPayloadOnce(url: string): Promise<SpotiFLACNextStatusResponse> {
+async function fetchStatusPayloadOnce(url: string): Promise<SoudMusicNextStatusResponse> {
     const response = await withTimeout(fetch(url, {
         method: "GET",
         cache: "no-store",
         headers: {
             Accept: "application/json",
         },
-    }), CHECK_TIMEOUT_MS, "SpotiFLAC status check timed out after 10 seconds");
+    }), CHECK_TIMEOUT_MS, "SoudMusic status check timed out after 10 seconds");
     if (!response.ok) {
-        throw new Error(`SpotiFLAC status returned ${response.status}`);
+        throw new Error(`SoudMusic status returned ${response.status}`);
     }
-    return (await response.json()) as SpotiFLACNextStatusResponse;
+    return (await response.json()) as SoudMusicNextStatusResponse;
 }
-async function fetchStatusPayloadWithRetry(url: string): Promise<SpotiFLACNextStatusResponse> {
+async function fetchStatusPayloadWithRetry(url: string): Promise<SoudMusicNextStatusResponse> {
     let lastError: unknown = null;
-    for (let attempt = 1; attempt <= SPOTIFLAC_STATUS_MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 1; attempt <= SOUDMUSIC_STATUS_MAX_ATTEMPTS; attempt++) {
         try {
             return await fetchStatusPayloadOnce(url);
         }
         catch (error) {
             lastError = error;
-            if (attempt < SPOTIFLAC_STATUS_MAX_ATTEMPTS) {
-                await delay(SPOTIFLAC_STATUS_RETRY_DELAY_MS * attempt);
+            if (attempt < SOUDMUSIC_STATUS_MAX_ATTEMPTS) {
+                await delay(SOUDMUSIC_STATUS_RETRY_DELAY_MS * attempt);
             }
         }
     }
-    throw lastError instanceof Error ? lastError : new Error("SpotiFLAC status check failed");
+    throw lastError instanceof Error ? lastError : new Error("SoudMusic status check failed");
 }
-async function fetchSpotiFLACStatusPayload(): Promise<SpotiFLACNextStatusResponse> {
+async function fetchSoudMusicStatusPayload(): Promise<SoudMusicNextStatusResponse> {
     if (activeStatusPayloadFetch) {
         return activeStatusPayloadFetch;
     }
-    activeStatusPayloadFetch = fetchStatusPayloadWithRetry(SPOTIFLAC_STATUS_URL);
+    activeStatusPayloadFetch = fetchStatusPayloadWithRetry(SOUDMUSIC_STATUS_URL);
     try {
         return await activeStatusPayloadFetch;
     }
@@ -147,11 +147,11 @@ async function fetchSpotiFLACStatusPayload(): Promise<SpotiFLACNextStatusRespons
         activeStatusPayloadFetch = null;
     }
 }
-async function fetchSpotiFLACCurrentStatusPayload(): Promise<SpotiFLACNextStatusResponse> {
+async function fetchSoudMusicCurrentStatusPayload(): Promise<SoudMusicNextStatusResponse> {
     if (activeCurrentStatusPayloadFetch) {
         return activeCurrentStatusPayloadFetch;
     }
-    activeCurrentStatusPayloadFetch = fetchStatusPayloadWithRetry(SPOTIFLAC_CURRENT_STATUS_URL);
+    activeCurrentStatusPayloadFetch = fetchStatusPayloadWithRetry(SOUDMUSIC_CURRENT_STATUS_URL);
     try {
         return await activeCurrentStatusPayloadFetch;
     }
@@ -161,7 +161,7 @@ async function fetchSpotiFLACCurrentStatusPayload(): Promise<SpotiFLACNextStatus
 }
 async function checkSourceStatus(source: ApiSource): Promise<ApiCheckStatus> {
     try {
-        const payload = await fetchSpotiFLACCurrentStatusPayload();
+        const payload = await fetchSoudMusicCurrentStatusPayload();
         return payload[source.id] === "up" ? "online" : "offline";
     }
     catch (error) {
@@ -169,9 +169,9 @@ async function checkSourceStatus(source: ApiSource): Promise<ApiCheckStatus> {
         return "offline";
     }
 }
-async function checkSpotiFLACNextStatuses(): Promise<Record<string, ApiCheckStatus>> {
-    const payload = await fetchSpotiFLACStatusPayload();
-    return SPOTIFLAC_NEXT_SOURCES.reduce<Record<string, ApiCheckStatus>>((acc, source) => {
+async function checkSoudMusicNextStatuses(): Promise<Record<string, ApiCheckStatus>> {
+    const payload = await fetchSoudMusicStatusPayload();
+    return SOUDMUSIC_NEXT_SOURCES.reduce<Record<string, ApiCheckStatus>>((acc, source) => {
         acc[source.id] = anyNextVariantUp(getNextSourceValues(payload, source));
         return acc;
     }, {});
@@ -199,12 +199,12 @@ export async function checkCurrentApiStatusesOnly(): Promise<void> {
         activeCheckCurrentOnly = null;
     }
 }
-export async function checkSpotiFLACNextStatusesOnly(): Promise<void> {
+export async function checkSoudMusicNextStatusesOnly(): Promise<void> {
     if (activeCheckNextOnly) {
         return activeCheckNextOnly;
     }
     activeCheckNextOnly = (async () => {
-        const checkingNextStatuses = Object.fromEntries(SPOTIFLAC_NEXT_SOURCES.map((source) => [source.id, "checking" as ApiCheckStatus]));
+        const checkingNextStatuses = Object.fromEntries(SOUDMUSIC_NEXT_SOURCES.map((source) => [source.id, "checking" as ApiCheckStatus]));
         setApiStatusState((current) => ({
             ...current,
             nextStatuses: {
@@ -213,7 +213,7 @@ export async function checkSpotiFLACNextStatusesOnly(): Promise<void> {
             },
         }));
         try {
-            const nextStatuses = await checkSpotiFLACNextStatuses();
+            const nextStatuses = await checkSoudMusicNextStatuses();
             setApiStatusState((current) => ({
                 ...current,
                 nextStatuses: {
@@ -240,11 +240,11 @@ export function ensureApiStatusCheckStarted(): void {
     if (!activeCheckCurrentOnly && !hasCurrentResults()) {
         void checkCurrentApiStatusesOnly();
     }
-    if (!activeCheckNextOnly && !hasSpotiFLACNextResults()) {
-        void checkSpotiFLACNextStatusesOnly();
+    if (!activeCheckNextOnly && !hasSoudMusicNextResults()) {
+        void checkSoudMusicNextStatusesOnly();
     }
 }
-export function ensureSpotiFLACNextStatusCheckStarted(): void {
+export function ensureSoudMusicNextStatusCheckStarted(): void {
     ensureApiStatusCheckStarted();
 }
 export async function checkApiStatus(sourceId: string): Promise<void> {

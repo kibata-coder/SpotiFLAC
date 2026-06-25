@@ -7,7 +7,7 @@ import ChatGPTTTSIcon from "@/assets/chatgpt-tts.webp";
 import XIcon from "@/assets/x.webp";
 import SpotubeDLIcon from "@/assets/icons/spotubedl.svg";
 import XBatchDLIcon from "@/assets/icons/xbatchdl.svg";
-import SpotiFLACNextIcon from "@/assets/icons/next.svg";
+import SoudMusicNextIcon from "@/assets/icons/next.svg";
 import { langColors } from "@/assets/github-lang-colors";
 const browserExtensionItems = [
     { icon: AudioTTSProIcon, label: "AudioTTS Pro", alt: "AudioTTS Pro" },
@@ -40,7 +40,7 @@ export function OtherProjects() {
                 }
             }
             const repos = [
-                { name: "SpotiFLAC-Next", owner: "spotbye" },
+                { name: "SoudMusic-Next", owner: "spotbye" },
                 { name: "Twitter-X-Media-Batch-Downloader", owner: "afkarxyz" },
             ];
             const stats: Record<string, any> = {};
@@ -178,29 +178,29 @@ export function OtherProjects() {
 
       <div className="flex-1 min-h-0 pr-1.5">
             <div className="grid gap-2 grid-cols-3">
-              <Card className={projectCardClass} onClick={() => openExternal("https://github.com/spotbye/SpotiFLAC-Next")}>
+              <Card className={projectCardClass} onClick={() => openExternal("https://github.com/spotbye/SoudMusic-Next")}>
                 <CardHeader className={projectCardHeaderClass}>
                   <div className="flex justify-between items-start mb-2">
-                    <img src={SpotiFLACNextIcon} className="h-6 w-6 shrink-0" alt="SpotiFLAC Next"/>
+                    <img src={SoudMusicNextIcon} className="h-6 w-6 shrink-0" alt="SoudMusic Next"/>
                     <div className="ml-3 flex flex-wrap items-center justify-end gap-2">
-                      {repoStats["SpotiFLAC-Next"]?.latestReleaseAt && (<span className={releaseMetaClass}>
-                          {formatReleaseTimeAgo(repoStats["SpotiFLAC-Next"].latestReleaseAt)}
+                      {repoStats["SoudMusic-Next"]?.latestReleaseAt && (<span className={releaseMetaClass}>
+                          {formatReleaseTimeAgo(repoStats["SoudMusic-Next"].latestReleaseAt)}
                         </span>)}
-                      {repoStats["SpotiFLAC-Next"]?.latestVersion && (<span className={releaseVersionClass}>
-                          {repoStats["SpotiFLAC-Next"].latestVersion}
+                      {repoStats["SoudMusic-Next"]?.latestVersion && (<span className={releaseVersionClass}>
+                          {repoStats["SoudMusic-Next"].latestVersion}
                         </span>)}
                     </div>
                   </div>
                   <CardTitle className="leading-tight">
-                    SpotiFLAC Next
+                    SoudMusic Next
                   </CardTitle>
                   <CardDescription className={projectBodyClass}>
-                    {getRepoDescription("SpotiFLAC-Next")}
+                    {getRepoDescription("SoudMusic-Next")}
                   </CardDescription>
                 </CardHeader>
-                {repoStats["SpotiFLAC-Next"] && (<CardContent className={`${projectCardContentClass} space-y-2`}>
-                    {repoStats["SpotiFLAC-Next"].languages?.length > 0 && (<div className="flex flex-wrap gap-2 text-xs">
-                        {repoStats["SpotiFLAC-Next"].languages.map((lang: string) => (<span key={lang} className="px-2 py-0.5 rounded-full font-medium" style={{
+                {repoStats["SoudMusic-Next"] && (<CardContent className={`${projectCardContentClass} space-y-2`}>
+                    {repoStats["SoudMusic-Next"].languages?.length > 0 && (<div className="flex flex-wrap gap-2 text-xs">
+                        {repoStats["SoudMusic-Next"].languages.map((lang: string) => (<span key={lang} className="px-2 py-0.5 rounded-full font-medium" style={{
                         backgroundColor: getLangColor(lang) + "20",
                         color: getLangColor(lang),
                     }}>
@@ -210,15 +210,15 @@ export function OtherProjects() {
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500"/>{" "}
-                        {formatNumber(repoStats["SpotiFLAC-Next"].stars)}
+                        {formatNumber(repoStats["SoudMusic-Next"].stars)}
                       </span>
                       <span className="flex items-center gap-1">
                         <GitFork className="h-3.5 w-3.5"/>{" "}
-                        {repoStats["SpotiFLAC-Next"].forks}
+                        {repoStats["SoudMusic-Next"].forks}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3.5 w-3.5"/>{" "}
-                        {formatTimeAgo(repoStats["SpotiFLAC-Next"].createdAt)}
+                        {formatTimeAgo(repoStats["SoudMusic-Next"].createdAt)}
                       </span>
                     </div>
                     <div className="rounded-md border border-sky-500/25 bg-sky-500/8 px-3 py-2">
@@ -227,7 +227,7 @@ export function OtherProjects() {
                         Note
                       </div>
                       <p className="text-xs leading-snug text-sky-700 dark:text-sky-300">
-                        This project released as a token of appreciation for those who have supported SpotiFLAC through Ko-fi, Patreon, or crypto. It’s not a paid product, but it’s shared privately through a supporter-only post.
+                        This project released as a token of appreciation for those who have supported SoudMusic through Ko-fi, Patreon, or crypto. It’s not a paid product, but it’s shared privately through a supporter-only post.
                       </p>
                     </div>
                   </CardContent>)}

@@ -76,18 +76,18 @@ jobs:
 
       - name: Compress with UPX
         run: |
-          upx --best --lzma "build\bin\SpotiFLAC.exe"
+          upx --best --lzma "build\bin\SoudMusic.exe"
 
       - name: Prepare artifacts
         run: |
           mkdir -p dist
-          Copy-Item -Path "build\bin\SpotiFLAC.exe" -Destination "dist\SpotiFLAC.exe"
+          Copy-Item -Path "build\bin\SoudMusic.exe" -Destination "dist\SoudMusic.exe"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-portable
-          path: dist/SpotiFLAC.exe
+          path: dist/SoudMusic.exe
           retention-days: 7
 
   build-macos:
@@ -155,23 +155,23 @@ jobs:
 
           # Create DMG
           create-dmg \
-            --volname "SpotiFLAC" \
+            --volname "SoudMusic" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
-            --icon "SpotiFLAC.app" 175 120 \
-            --hide-extension "SpotiFLAC.app" \
+            --icon "SoudMusic.app" 175 120 \
+            --hide-extension "SoudMusic.app" \
             --app-drop-link 425 120 \
-            "dist/SpotiFLAC.dmg" \
-            "build/bin/SpotiFLAC.app" || \
+            "dist/SoudMusic.dmg" \
+            "build/bin/SoudMusic.app" || \
           # Fallback to hdiutil if create-dmg fails
-          hdiutil create -volname SpotiFLAC -srcfolder build/bin/SpotiFLAC.app -ov -format UDZO dist/SpotiFLAC.dmg
+          hdiutil create -volname SoudMusic -srcfolder build/bin/SoudMusic.app -ov -format UDZO dist/SoudMusic.dmg
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-portable
-          path: dist/SpotiFLAC.dmg
+          path: dist/SoudMusic.dmg
           retention-days: 7
 
   build-linux:
@@ -185,7 +185,7 @@ jobs:
             runner: ubuntu-24.04
             wails_platform: linux/amd64
             artifact_name: linux-portable
-            output_name: SpotiFLAC.AppImage
+            output_name: SoudMusic.AppImage
             appimage_arch: x86_64
             appimagetool_arch: x86_64
             pkgconfig_dir: /usr/lib/x86_64-linux-gnu/pkgconfig
@@ -193,7 +193,7 @@ jobs:
             runner: ubuntu-24.04-arm
             wails_platform: linux/arm64
             artifact_name: linux-portable-arm
-            output_name: SpotiFLAC-ARM.AppImage
+            output_name: SoudMusic-ARM.AppImage
             appimage_arch: aarch64
             appimagetool_arch: aarch64
             pkgconfig_dir: /usr/lib/aarch64-linux-gnu/pkgconfig
@@ -261,7 +261,7 @@ jobs:
 
       - name: Compress with UPX
         run: |
-          upx --best --lzma build/bin/SpotiFLAC
+          upx --best --lzma build/bin/SoudMusic
 
       - name: Cache appimagetool
         id: cache-appimagetool
@@ -286,34 +286,34 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
           # Copy binary
-          cp build/bin/SpotiFLAC AppDir/usr/bin/
+          cp build/bin/SoudMusic AppDir/usr/bin/
 
           # Create desktop file
-          cat > AppDir/spotiflac.desktop << 'EOF'
+          cat > AppDir/soudmusic.desktop << 'EOF'
           [Desktop Entry]
-          Name=SpotiFLAC
-          Exec=SpotiFLAC
-          Icon=spotiflac
+          Name=SoudMusic
+          Exec=SoudMusic
+          Icon=soudmusic
           Type=Application
           Categories=Audio;AudioVideo;
           Comment=Get Spotify tracks in true FLAC from Tidal/Deezer
           EOF
 
-          cp AppDir/spotiflac.desktop AppDir/usr/share/applications/
+          cp AppDir/soudmusic.desktop AppDir/usr/share/applications/
 
           # Create icon
           if [ -f "build/appicon.png" ]; then
-            convert build/appicon.png -resize 256x256 AppDir/spotiflac.png
+            convert build/appicon.png -resize 256x256 AppDir/soudmusic.png
           elif [ -f "frontend/public/icon.svg" ]; then
-            convert -background none -size 256x256 frontend/public/icon.svg AppDir/spotiflac.png
+            convert -background none -size 256x256 frontend/public/icon.svg AppDir/soudmusic.png
           else
             echo "Warning: No icon found, building without icon"
           fi
 
           # Copy icon if exists
-          if [ -f "AppDir/spotiflac.png" ]; then
-            cp AppDir/spotiflac.png AppDir/usr/share/icons/hicolor/256x256/apps/
-            cp AppDir/spotiflac.png AppDir/.DirIcon
+          if [ -f "AppDir/soudmusic.png" ]; then
+            cp AppDir/soudmusic.png AppDir/usr/share/icons/hicolor/256x256/apps/
+            cp AppDir/soudmusic.png AppDir/.DirIcon
           fi
 
           # Create AppRun
@@ -323,7 +323,7 @@ jobs:
           HERE=${SELF%/*}
           export PATH="${HERE}/usr/bin/:${PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib/:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/SpotiFLAC" "$@"
+          exec "${HERE}/usr/bin/SoudMusic" "$@"
           EOF
           chmod +x AppDir/AppRun
 
@@ -374,10 +374,10 @@ jobs:
 
             ## Downloads
 
-            - `SpotiFLAC.exe` - Windows
-            - `SpotiFLAC.dmg` - macOS
-            - `SpotiFLAC.AppImage` - Linux AMD64
-            - `SpotiFLAC-ARM.AppImage` - Linux ARM64
+            - `SoudMusic.exe` - Windows
+            - `SoudMusic.dmg` - macOS
+            - `SoudMusic.AppImage` - Linux AMD64
+            - `SoudMusic-ARM.AppImage` - Linux ARM64
 
             <details>
             <summary><b>Linux Requirements</b></summary>
@@ -401,21 +401,21 @@ jobs:
 
             After installing the dependency, make the AppImage executable:
             ```bash
-            chmod +x SpotiFLAC.AppImage
-            ./SpotiFLAC.AppImage
+            chmod +x SoudMusic.AppImage
+            ./SoudMusic.AppImage
             ```
 
             For ARM64:
             ```bash
-            chmod +x SpotiFLAC-ARM.AppImage
-            ./SpotiFLAC-ARM.AppImage
+            chmod +x SoudMusic-ARM.AppImage
+            ./SoudMusic-ARM.AppImage
             ```
 
             </details>
           files: |
-            artifacts/windows-portable/SpotiFLAC.exe
-            artifacts/macos-portable/SpotiFLAC.dmg
-            artifacts/linux-portable/SpotiFLAC.AppImage
-            artifacts/linux-portable-arm/SpotiFLAC-ARM.AppImage
+            artifacts/windows-portable/SoudMusic.exe
+            artifacts/macos-portable/SoudMusic.dmg
+            artifacts/linux-portable/SoudMusic.AppImage
+            artifacts/linux-portable-arm/SoudMusic-ARM.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

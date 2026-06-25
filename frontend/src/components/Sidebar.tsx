@@ -38,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
         </div>
         <div>
           <span className="font-black text-[1.15rem] tracking-tight text-white leading-none block">
-            SpotiFLAC
+            SoudMusic
           </span>
           <span className="text-xs font-medium leading-none" style={{ color: 'var(--sp-subdued)' }}>
             Lossless Downloader

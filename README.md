@@ -1,22 +1,22 @@
-# SpotiFLAC
+# SoudMusic
 
-<a href="https://trendshift.io/repositories/15737" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15737" alt="afkarxyz%2FSpotiFLAC | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/15737" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15737" alt="afkarxyz%2FSoudMusic | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 Get Spotify tracks in true FLAC from Tidal, Qobuz & Amazon Music — no account required.
 
 ![Windows](https://img.shields.io/badge/Windows-10%2B-0078D6?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiB2aWV3Qm94PSIwIDAgMjAgMjAiPjxwYXRoIGZpbGw9IiNmZmZmZmYiIGZpbGwtcnVsZT0iZXZlbm9kZCIgZD0iTTIwIDEwLjg3M1YyMEw4LjQ3OSAxOC41MzdsLjAwMS03LjY2NEgyMFptLTEzLjEyIDBsLS4wMDEgNy40NjFMMCAxNy40NjF2LTYuNTg4aDYuODhaTTIwIDkuMjczSDguNDhsLS4wMDEtNy44MUwyMCAwdjkuMjczWk02Ljg3OSAxLjY2NmwuMDAxIDcuNjA3SDBWMi41MzlsNi44NzktLjg3M1oiLz48L3N2Zz4=)
 ![macOS](https://img.shields.io/badge/macOS-10.13%2B-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-Any-FCC624?style=for-the-badge&logo=linux&logoColor=white)
-[![Announcements](https://img.shields.io/badge/ANNOUNCEMENTS-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/spotiflac)
-[![Chat](https://img.shields.io/badge/CHAT-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/spotiflac_chat)
+[![Announcements](https://img.shields.io/badge/ANNOUNCEMENTS-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/soudmusic)
+[![Chat](https://img.shields.io/badge/CHAT-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/soudmusic_chat)
 
-### [Download](https://github.com/spotbye/SpotiFLAC/releases)
+### [Download](https://github.com/spotbye/SoudMusic/releases)
 
 ![Image](https://github.com/user-attachments/assets/c2624ca5-8569-49f0-950e-4410b523cea1)
 
 ## Other projects
 
-### [SpotiFLAC Next](https://github.com/spotbye/SpotiFLAC-Next)
+### [SoudMusic Next](https://github.com/spotbye/SoudMusic-Next)
 
 Get Spotify tracks in true Lossless from Tidal, Qobuz, Amazon Music, Deezer & Apple Music — no account required.
 
@@ -28,15 +28,15 @@ Download Spotify Tracks, Albums, Playlists & Discography as MP3/OGG/Opus.
 
 > [!NOTE]
 >
-> Related projects are maintained by the community and are not affiliated with the core SpotiFLAC desktop build.
+> Related projects are maintained by the community and are not affiliated with the core SoudMusic desktop build.
 
-### [SpotiFLAC (Mobile)](https://github.com/zarzet/SpotiFLAC-Mobile)
+### [SoudMusic (Mobile)](https://github.com/zarzet/SoudMusic-Mobile)
 
-SpotiFLAC for Android & iOS — maintained by [@zarzet](https://github.com/zarzet)
+SoudMusic for Android & iOS — maintained by [@zarzet](https://github.com/zarzet)
 
-### [SpotiFLAC (Python Module)](https://github.com/ShuShuzinhuu/SpotiFLAC-Module-Version)
+### [SoudMusic (Python Module)](https://github.com/ShuShuzinhuu/SoudMusic-Module-Version)
 
-SpotiFLAC Python library for SpotiFLAC integration — maintained by [@ShuShuzinhuu](https://github.com/ShuShuzinhuu)
+SoudMusic Python library for SoudMusic integration — maintained by [@ShuShuzinhuu](https://github.com/ShuShuzinhuu)
 
 ## FAQ
 
@@ -98,7 +98,7 @@ Your support helps keep development going._
 
 This project is for **educational and private use only**. The developer does not condone or encourage copyright infringement.
 
-**SpotiFLAC** is a third-party tool and is not affiliated with, endorsed by, or connected to Spotify, Tidal, Qobuz, Amazon Music or any other streaming service.
+**SoudMusic** is a third-party tool and is not affiliated with, endorsed by, or connected to Spotify, Tidal, Qobuz, Amazon Music or any other streaming service.
 
 You are solely responsible for:
 
@@ -116,4 +116,4 @@ The software is provided "as is", without warranty of any kind. The author assum
 >
 > **Star Us**, You will receive all release notifications from GitHub without any delay ~
 
-[![RepoStars](https://repostars.dev/api/embed?repo=afkarxyz%2FSpotiFLAC&theme=forest)](https://repostars.dev/?repos=afkarxyz%2FSpotiFLAC&theme=forest)
+[![RepoStars](https://repostars.dev/api/embed?repo=afkarxyz%2FSoudMusic&theme=forest)](https://repostars.dev/?repos=afkarxyz%2FSoudMusic&theme=forest)

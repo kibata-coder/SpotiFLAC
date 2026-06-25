@@ -74,8 +74,8 @@ def download_audio(video_id):
     file_id = str(uuid.uuid4())
     url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # We use pytubefix with the ANDROID client to bypass Render bot protections
-    yt = YouTube(url, client='ANDROID')
+    # We use pytubefix with the TV client to bypass 429 Too Many Requests
+    yt = YouTube(url, client='TV', use_po_token=True)
     
     # Extract the highest quality audio stream
     stream = yt.streams.get_audio_only()

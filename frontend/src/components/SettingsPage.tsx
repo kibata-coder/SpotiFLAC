@@ -9,7 +9,7 @@ const SettingsPage: React.FC = () => {
         <div className="bg-zinc-800/40 p-5 rounded-md border border-zinc-700/50">
           <h3 className="text-lg font-semibold mb-2">Download Location</h3>
           <p className="text-sm text-zinc-400">
-            Because you are using the Web version of SpotiFLAC, your browser will securely manage file storage. 
+            Because you are using the Web version of SoudMusic, your browser will securely manage file storage. 
             All lossless FLAC files will automatically save to your system's default <strong>Downloads</strong> folder.
           </p>
         </div>
