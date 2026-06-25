@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Search as SearchIcon, Download, Loader2, Music, Disc3, Wand2 } from 'lucide-react';
-import { searchSpotify, downloadTrackWeb } from '../lib/api';
+import React, { useState, useContext } from 'react';
+import { Search as SearchIcon, Download, Loader2, Music, Disc3, Wand2, Play } from 'lucide-react';
+import { searchSpotify, downloadTrackWeb, getStreamUrl } from '../lib/api';
 import type { SearchResult } from '../lib/api';
+import { PlayerContext } from '../App';
 
 export const SearchPanel: React.FC = () => {
+  const { playTrack } = useContext(PlayerContext);
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState('track');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -34,9 +36,9 @@ export const SearchPanel: React.FC = () => {
     try {
       await downloadTrackWeb(track.id, 'tidal', track.name);
       setDownloadedIds(prev => new Set([...prev, track.id]));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Download failed:', error);
-      alert('Failed to process and stream file from server.');
+      alert(error.message || 'Failed to process and stream file from server.');
     } finally {
       setDownloadingIds(prev => ({ ...prev, [track.id]: false }));
     }
@@ -133,7 +135,7 @@ export const SearchPanel: React.FC = () => {
         <div
           className="grid gap-1 px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in"
           style={{
-            gridTemplateColumns: '2.5rem 1fr 5rem 7rem',
+            gridTemplateColumns: '2.5rem 1fr 5rem 9rem',
             color: 'var(--sp-subdued)',
             borderColor: 'var(--sp-border)',
           }}
@@ -141,7 +143,7 @@ export const SearchPanel: React.FC = () => {
           <div className="text-center">#</div>
           <div>Title</div>
           <div className="text-right">Duration</div>
-          <div className="text-center">Action</div>
+          <div className="text-center">Actions</div>
         </div>
       )}
 
@@ -152,16 +154,16 @@ export const SearchPanel: React.FC = () => {
           const isDownloaded = downloadedIds.has(item.id);
 
           return (
-            <div
+              <div
               key={item.id}
               id={`track-${item.id}`}
               className="sp-track-row group animate-fade-in"
               style={{
-                gridTemplateColumns: '2.5rem 1fr 5rem 7rem',
+                gridTemplateColumns: '2.5rem 1fr 5rem 9rem',
                 animationDelay: `${Math.min(index * 30, 400)}ms`,
               }}
             >
-              {/* Row number / download icon */}
+              {/* Row number / play icon */}
               <div className="sp-row-num-wrap">
                 <span
                   className="sp-row-num"
@@ -169,8 +171,11 @@ export const SearchPanel: React.FC = () => {
                 >
                   {index + 1}
                 </span>
-                <span className="sp-row-play">
-                  <Download className="w-4 h-4" />
+                <span 
+                  className="sp-row-play" 
+                  onClick={() => playTrack(item, getStreamUrl(item.id, 'tidal'))}
+                >
+                  <Play className="w-4 h-4" />
                 </span>
               </div>
 
@@ -206,27 +211,34 @@ export const SearchPanel: React.FC = () => {
               </div>
 
               {/* Download action */}
-              <div className="sp-row-actions justify-center">
+              <div className="sp-row-actions justify-center gap-2 flex">
+                <button
+                  title="Play Preview / Stream"
+                  onClick={() => playTrack(item, getStreamUrl(item.id, 'tidal'))}
+                  className="sp-btn-outline flex items-center justify-center rounded-full w-8 h-8 p-0 border-zinc-600 hover:border-white text-zinc-300 hover:text-white"
+                >
+                  <Play className="w-4 h-4 ml-0.5 fill-current" />
+                </button>
+
                 {isDownloaded ? (
                   <span
-                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 h-8 rounded-full"
                     style={{ color: 'var(--sp-green)', background: 'var(--sp-green-dim)' }}
                   >
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
-                    Done
                   </span>
                 ) : (
                   <button
                     id={`download-${item.id}`}
                     onClick={() => handleDownload(item)}
                     disabled={isDownloading}
-                    className="sp-btn-outline flex items-center gap-1.5 text-xs py-1.5 px-3"
+                    className="sp-btn-outline flex items-center gap-1.5 text-xs h-8 px-3"
                     style={{ letterSpacing: 'normal', textTransform: 'none' }}
                   >
                     {isDownloading ? (
-                      <><Loader2 className="w-3.5 h-3.5 animate-spin" />Extracting…</>
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" />…</>
                     ) : (
                       <><Download className="w-3.5 h-3.5" />FLAC</>
                     )}

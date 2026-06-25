@@ -39,7 +39,14 @@ export async function downloadTrackWeb(spotifyId: string, service: string, track
   });
 
   if (!response.ok) {
-    throw new Error("Failed to process and stream audio from the server.");
+    let errorMsg = "Failed to process and stream audio from the server.";
+    try {
+      const errorData = await response.json();
+      if (errorData.error) errorMsg = errorData.error;
+      else if (errorData.message) errorMsg = errorData.message;
+      else if (errorData.Error) errorMsg = errorData.Error;
+    } catch (e) {}
+    throw new Error(errorMsg);
   }
 
   // Convert the binary stream into a browser download
@@ -59,4 +66,8 @@ export async function downloadTrackWeb(spotifyId: string, service: string, track
   // Memory cleanup
   window.URL.revokeObjectURL(downloadUrl);
   link.remove();
+}
+
+export function getStreamUrl(spotifyId: string, service: string = 'tidal'): string {
+  return `${API_BASE_URL}/api/stream?spotify_id=${encodeURIComponent(spotifyId)}&service=${encodeURIComponent(service)}`;
 }

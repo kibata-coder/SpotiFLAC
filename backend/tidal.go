@@ -251,70 +251,46 @@ func (t *TidalDownloader) GetTrackIDFromURL(tidalURL string) (int64, error) {
 }
 
 func (t *TidalDownloader) GetDownloadURL(trackID int64, quality string) (string, error) {
-	fmt.Println("Fetching URL...")
-	if strings.TrimSpace(t.apiURL) == "" {
-		fmt.Println("No custom Tidal instance configured, using community tdl-a endpoint")
-		return t.getTidalCommunityDownloadURL(trackID, quality)
+	fmt.Println("Fetching URL directly from Tidal API...")
+
+	token, err := GetTidalBearerToken()
+	if err != nil {
+		return "", fmt.Errorf("failed to get Tidal auth token: %w", err)
 	}
 
-	url := fmt.Sprintf("%s/track/?id=%d&quality=%s", t.apiURL, trackID, quality)
+	// Format expected by Tidal's v1 API
+	url := fmt.Sprintf("https://api.tidal.com/v1/tracks/%d/playbackinfo?audioquality=%s&playbackmode=STREAM&assetpresentation=FULL", trackID, quality)
 	fmt.Printf("Tidal API URL: %s\n", url)
 
-	req, err := NewRequestWithDefaultHeaders(http.MethodGet, url, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Printf("failed to create request: %v\n", err)
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	resp, err := t.client.Do(req)
 	if err != nil {
-		fmt.Printf("Tidal API request failed: %v\n", err)
 		return "", fmt.Errorf("failed to get download URL: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Printf("Tidal API returned status code: %d\n", resp.StatusCode)
-		return "", fmt.Errorf("API returned status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("API returned status code: %d, %s", resp.StatusCode, string(body))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Failed to read response body: %v\n", err)
 		return "", fmt.Errorf("failed to read response: %w", err)
 	}
 
-	var v2Response TidalAPIResponseV2
-	if err := json.Unmarshal(body, &v2Response); err == nil && v2Response.Data.Manifest != "" {
-		fmt.Println("Tidal manifest found (v2 API)")
-		return "MANIFEST:" + v2Response.Data.Manifest, nil
+	var directResp TidalDirectAPIResponse
+	if err := json.Unmarshal(body, &directResp); err == nil && directResp.Manifest != "" {
+		fmt.Println("Tidal manifest found (Direct API)")
+		return "MANIFEST:" + directResp.Manifest, nil
 	}
 
-	var apiResponses []TidalAPIResponse
-	if err := json.Unmarshal(body, &apiResponses); err != nil {
-
-		bodyStr := string(body)
-		if len(bodyStr) > 200 {
-			bodyStr = bodyStr[:200] + "..."
-		}
-		fmt.Printf("Failed to decode Tidal API response: %v (response: %s)\n", err, bodyStr)
-		return "", fmt.Errorf("failed to decode response: %w (response: %s)", err, bodyStr)
-	}
-
-	if len(apiResponses) == 0 {
-		fmt.Println("Tidal API returned empty response")
-		return "", fmt.Errorf("no download URL in response")
-	}
-
-	for _, item := range apiResponses {
-		if item.OriginalTrackURL != "" {
-			fmt.Println("Tidal download URL found")
-			return item.OriginalTrackURL, nil
-		}
-	}
-
-	fmt.Println("No valid download URL in Tidal API response")
-	return "", fmt.Errorf("download URL not found in response")
+	return "", fmt.Errorf("download manifest not found in response: %s", string(body))
 }
 
 func (t *TidalDownloader) DownloadFile(url, filepath string, quality string) error {

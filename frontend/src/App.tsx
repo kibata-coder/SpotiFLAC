@@ -1,9 +1,32 @@
-import { useState } from 'react';
+import { useState, createContext, useContext } from 'react';
 import Sidebar from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
+import { AudioPlayer } from './components/AudioPlayer';
+import type { SearchResult } from './lib/api';
+
+export interface PlayerContextType {
+  playTrack: (track: SearchResult, streamUrl: string) => void;
+}
+
+export const PlayerContext = createContext<PlayerContextType>({ playTrack: () => {} });
 
 function App() {
   const [currentTab, setCurrentTab] = useState('search');
+  
+  // Audio Player State
+  const [currentTrack, setCurrentTrack] = useState<SearchResult | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
+
+  const playTrack = (track: SearchResult, url: string) => {
+    if (currentTrack?.id === track.id) {
+      setIsPlaying(!isPlaying);
+      return;
+    }
+    setCurrentTrack(track);
+    setStreamUrl(url);
+    setIsPlaying(true);
+  };
 
   const renderContent = () => {
     switch (currentTab) {
@@ -51,7 +74,6 @@ function App() {
     }
   };
 
-  // Gradient per tab
   const gradients: Record<string, string> = {
     search:   'linear-gradient(180deg, rgba(28,65,46,0.9) 0%, rgba(18,18,18,0) 100%)',
     queue:    'linear-gradient(180deg, rgba(30,50,90,0.8) 0%, rgba(18,18,18,0) 100%)',
@@ -60,70 +82,74 @@ function App() {
   };
 
   return (
-    // Outermost shell — 100vh, row flex, no overflow
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        height: '100vh',
-        width: '100vw',
-        overflow: 'hidden',
-        background: 'var(--sp-bg)',
-        padding: '8px',
-        gap: '8px',
-        boxSizing: 'border-box',
-      }}
-    >
-      {/* ── Sidebar (fixed width, never shrinks) ── */}
-      <div style={{ width: 280, flexShrink: 0, height: '100%' }}>
-        <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
-      </div>
-
-      {/* ── Main panel (fills remaining width) ── */}
-      <main
+    <PlayerContext.Provider value={{ playTrack }}>
+      <div
         style={{
-          flex: '1 1 0',
-          minWidth: 0,
-          height: '100%',
           display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          background: 'var(--sp-surface)',
-          borderRadius: 12,
+          flexDirection: 'row',
+          height: currentTrack ? 'calc(100vh - 96px)' : '100vh',
+          width: '100vw',
           overflow: 'hidden',
+          background: 'var(--sp-bg)',
+          padding: '8px',
+          gap: '8px',
+          boxSizing: 'border-box',
         }}
       >
-        {/* Gradient wash */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0, left: 0, right: 0,
-            height: 280,
-            background: gradients[currentTab] ?? gradients.settings,
-            pointerEvents: 'none',
-            transition: 'background 0.6s ease',
-            zIndex: 0,
-          }}
-        />
+        <div style={{ width: 280, flexShrink: 0, height: '100%' }}>
+          <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
+        </div>
 
-        {/* ── Scrollable content ── the key is: flex:1, minHeight:0, overflowY:auto */}
-        <div
-          className="custom-scrollbar"
+        <main
           style={{
-            position: 'relative',
-            zIndex: 1,
             flex: '1 1 0',
-            minHeight: 0,          // ← prevents flex child from expanding beyond parent
-            overflowY: 'auto',
-            overflowX: 'hidden',
+            minWidth: 0,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            background: 'var(--sp-surface)',
+            borderRadius: 12,
+            overflow: 'hidden',
           }}
         >
-          <div style={{ maxWidth: 1800, margin: '0 auto', padding: '24px 32px' }}>
-            {renderContent()}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0, left: 0, right: 0,
+              height: 280,
+              background: gradients[currentTab] ?? gradients.settings,
+              pointerEvents: 'none',
+              transition: 'background 0.6s ease',
+              zIndex: 0,
+            }}
+          />
+
+          <div
+            className="custom-scrollbar"
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              flex: '1 1 0',
+              minHeight: 0,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+            }}
+          >
+            <div style={{ maxWidth: 1800, margin: '0 auto', padding: '24px 32px' }}>
+              {renderContent()}
+            </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+
+      <AudioPlayer 
+        currentTrack={currentTrack} 
+        isPlaying={isPlaying} 
+        streamUrl={streamUrl}
+        onPlayPause={() => setIsPlaying(!isPlaying)} 
+      />
+    </PlayerContext.Provider>
   );
 }
 

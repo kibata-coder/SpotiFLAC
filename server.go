@@ -8,16 +8,38 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 // Global reference to the SpotiFLAC core application
 var engine *App
+
+func cleanupCacheRoutine() {
+	for {
+		time.Sleep(15 * time.Minute)
+		files, err := os.ReadDir("./cache")
+		if err != nil {
+			continue
+		}
+		now := time.Now()
+		for _, f := range files {
+			if f.IsDir() { continue }
+			info, err := f.Info()
+			if err == nil && now.Sub(info.ModTime()) > 1*time.Hour {
+				os.Remove(filepath.Join("./cache", f.Name()))
+			}
+		}
+	}
+}
 
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
+
+	os.MkdirAll("./cache", 0755)
+	go cleanupCacheRoutine()
 
 	// 1. Initialize the existing SpotiFLAC App from app.go
 	engine = NewApp()
@@ -28,6 +50,7 @@ func main() {
 	// 3. Register our web endpoints
 	http.HandleFunc("/api/search", handleSearch)
 	http.HandleFunc("/api/download", handleDownload)
+	http.HandleFunc("/api/stream", handleStream)
 
 	// 4. Serve the compiled frontend as static files
 	fs := http.FileServer(http.Dir("./frontend/dist"))
@@ -51,7 +74,6 @@ func enableCORS(w *http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
-// Bridges your web UI to the SearchSpotifyByType method in app.go
 func handleSearch(w http.ResponseWriter, r *http.Request) {
 	if enableCORS(&w, r) { return }
 
@@ -61,21 +83,16 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Safely extract payload variables
 	query, _ := req["query"].(string)
 	searchType, _ := req["search_type"].(string)
-	limit := 20
-	offset := 0
-
-	// 1. Pack the variables into the struct app.go expects
+	
 	searchReq := SpotifySearchByTypeRequest{
 		Query:      query,
 		SearchType: searchType,
-		Limit:      limit,
-		Offset:     offset,
+		Limit:      20,
+		Offset:     0,
 	}
 
-	// 2. Execute original search logic and capture both results AND the error
 	results, err := engine.SearchSpotifyByType(searchReq)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -86,49 +103,67 @@ func handleSearch(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(results)
 }
 
-// Bridges your web UI to the DownloadTrack method in app.go
+func downloadToCache(spotifyID, service string) (string, error) {
+	reqData := DownloadRequest{
+		SpotifyID: spotifyID,
+		Service:   service,
+		OutputDir: "./cache",
+	}
+
+	resp, err := engine.DownloadTrack(reqData)
+	if err != nil {
+		return "", err
+	}
+	if !resp.Success || resp.File == "" {
+		return "", fmt.Errorf("%s", resp.Error)
+	}
+	return resp.File, nil
+}
+
 func handleDownload(w http.ResponseWriter, r *http.Request) {
 	if enableCORS(&w, r) { return }
 
-	// 1. Decode the JSON directly into the DownloadRequest struct defined in app.go
 	var reqData DownloadRequest
 	if err := json.NewDecoder(r.Body).Decode(&reqData); err != nil {
 		http.Error(w, "Invalid payload", http.StatusBadRequest)
 		return
 	}
 
-	// 2. Call the engine and capture the response/error
-	resp, err := engine.DownloadTrack(reqData)
-	
+	file, err := downloadToCache(reqData.SpotifyID, reqData.Service)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(resp)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	if !resp.Success || resp.File == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(resp)
-		return
-	}
-
-	// 3. Stream the file back to the client
-	file, err := os.Open(resp.File)
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to open downloaded file"})
-		return
-	}
-	defer file.Close()
-	defer os.Remove(resp.File) // Clean up the file from the server after sending
-
-	// Set headers for file download
 	w.Header().Set("Content-Type", "audio/flac")
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+filepath.Base(resp.File)+"\"")
-	
-	// Stream the file
-	io.Copy(w, file)
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+filepath.Base(file)+"\"")
+	http.ServeFile(w, r, file)
+}
+
+func handleStream(w http.ResponseWriter, r *http.Request) {
+	if enableCORS(&w, r) { return }
+
+	spotifyID := r.URL.Query().Get("spotify_id")
+	service := r.URL.Query().Get("service")
+	if service == "" {
+		service = "tidal"
+	}
+
+	if spotifyID == "" {
+		http.Error(w, "spotify_id is required", http.StatusBadRequest)
+		return
+	}
+
+	file, err := downloadToCache(spotifyID, service)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Serve the file inline for streaming with Range support
+	w.Header().Set("Content-Type", "audio/flac")
+	w.Header().Set("Content-Disposition", "inline; filename=\""+filepath.Base(file)+"\"")
+	http.ServeFile(w, r, file)
 }
