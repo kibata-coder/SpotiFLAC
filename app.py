@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file, render_template
 from ytmusicapi import YTMusic
-import yt_dlp
+from pytubefix import YouTube
 import os
 import tempfile
 import uuid
@@ -70,52 +70,28 @@ def download_audio(video_id):
     if not video_id:
         raise Exception('Missing video_id')
         
-    # We use a temporary directory to store the file
     temp_dir = tempfile.gettempdir()
     file_id = str(uuid.uuid4())
-    output_template = os.path.join(temp_dir, f"{file_id}.%(ext)s")
+    url = f"https://www.youtube.com/watch?v={video_id}"
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': output_template,
-        'noplaylist': True,
-        'quiet': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'ios']
-            }
-        }
-    }
+    # We use pytubefix with the ANDROID client to bypass Render bot protections
+    yt = YouTube(url, client='ANDROID')
     
-    # We can fetch the track details directly from YouTube Music since we have the videoId
-    track_title = "Unknown Track"
-    artist = "Unknown Artist"
-    try:
-        if ytmusic:
-            song_info = ytmusic.get_song(video_id)
-            if 'videoDetails' in song_info:
-                track_title = song_info['videoDetails']['title']
-                artist = song_info['videoDetails']['author']
-    except Exception as e:
-        print(f"Warning: Could not fetch exact title/artist for {video_id}: {e}")
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        # We can pass the URL directly since we know the videoId!
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        info = ydl.extract_info(url, download=True)
-        if not info:
-            raise Exception('Failed to extract info from YouTube')
+    # Extract the highest quality audio stream
+    stream = yt.streams.get_audio_only()
+    if not stream:
+        raise Exception('Failed to find an audio stream for this track')
         
-        # If we didn't get title/artist earlier, we can get it from yt-dlp info
-        if track_title == "Unknown Track":
-            track_title = info.get('title', track_title)
-            artist = info.get('uploader', artist)
-            
-        ext = info.get('ext', 'webm')
-        
-        # Find the generated audio file
-        expected_filepath = os.path.join(temp_dir, f"{file_id}.{ext}")
-        return expected_filepath, track_title, artist, ext
+    ext = stream.subtype
+    filename = f"{file_id}.{ext}"
+    
+    # Download the stream to the temporary directory
+    expected_filepath = stream.download(output_path=temp_dir, filename=filename)
+    
+    track_title = yt.title or "Unknown Track"
+    artist = yt.author or "Unknown Artist"
+    
+    return expected_filepath, track_title, artist, ext
 
 
 @app.route('/api/download', methods=['POST'])
@@ -171,6 +147,5 @@ def stream():
 
 
 if __name__ == '__main__':
-    # Using 0.0.0.0 and port 10000 for standard cloud environments (e.g. Render)
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False)
