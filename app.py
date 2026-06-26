@@ -11,6 +11,16 @@ import random
 import time
 from flask_cors import CORS
 
+COOKIES_PATH = "/app/cookies.txt"
+
+def _get_cookie_opts():
+    """Return cookiefile opt if cookies.txt exists, else empty dict."""
+    if os.path.exists(COOKIES_PATH):
+        print(f"🍪 Using cookies from {COOKIES_PATH}")
+        return {"cookiefile": COOKIES_PATH}
+    print("⚠️ No cookies.txt found, proceeding without cookies")
+    return {}
+
 app = Flask(__name__)
 CORS(app)
 
@@ -130,8 +140,7 @@ def download_audio(video_id: str):
     downloaded    = False
 
     # Optional cookies file
-    _COOKIES_FILE  = "/app/cookies.txt"
-    _cookies_exist = os.path.exists(_COOKIES_FILE)
+    _cookies_exist = os.path.exists(COOKIES_PATH)
 
     # Optional residential proxy from env
     _ytdlp_proxy = os.environ.get("YTDLP_PROXY")
@@ -153,7 +162,7 @@ def download_audio(video_id: str):
         if http_headers:
             opts["http_headers"] = http_headers
         if _cookies_exist:
-            opts["cookiefile"] = _COOKIES_FILE
+            opts.update(_get_cookie_opts())
         if _ytdlp_proxy:
             opts["proxy"] = _ytdlp_proxy
         return opts
@@ -331,6 +340,31 @@ def stream():
         return send_file(filepath, as_attachment=False, mimetype=f"audio/{ext}")
     except Exception as e:
         print(f"Stream error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/cookies/status", methods=["GET"])
+def cookies_status():
+    exists = os.path.exists(COOKIES_PATH)
+    return jsonify({
+        "cookies_loaded": exists,
+        "path": COOKIES_PATH,
+        "message": "cookies.txt found and active" if exists else "No cookies.txt found — uploads bypassed"
+    })
+
+
+@app.route("/api/cookies/upload", methods=["POST"])
+def cookies_upload():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    file = request.files["file"]
+    if not file.filename.endswith(".txt"):
+        return jsonify({"error": "File must be a .txt file"}), 400
+    try:
+        os.makedirs(os.path.dirname(COOKIES_PATH), exist_ok=True)
+        file.save(COOKIES_PATH)
+        return jsonify({"success": True, "message": "cookies.txt uploaded successfully"})
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
