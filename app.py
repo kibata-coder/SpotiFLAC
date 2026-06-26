@@ -115,14 +115,16 @@ def download_audio(video_id):
     flac_filepath = os.path.join(temp_dir, f"{file_id}.flac")
     downloaded_ok = False
 
-    # ---- Method 1: yt-dlp directly (works if Railway IPs are not banned) ----
-    print("Trying yt-dlp direct download...")
+    # ---- Method 1: yt-dlp via Cloudflare WARP SOCKS5 proxy (127.0.0.1:40000) ----
+    # WARP routes traffic through Cloudflare's residential network, bypassing datacenter IP bans
+    print("Trying yt-dlp via WARP SOCKS5 proxy...")
     try:
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': raw_filepath,
             'quiet': True,
             'no_warnings': True,
+            'proxy': 'socks5://127.0.0.1:40000',
             'extractor_args': {
                 'youtube': {
                     'player_client': ['ios', 'android_music', 'web_embedded'],
