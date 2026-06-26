@@ -377,80 +377,94 @@ def download_audio(video_id: str):
             except Exception:
                 pass
 
-    # ── Method 2: yt-dlp with WARP SOCKS5 proxy ──────────────────────────────
-    print(f"[{video_id}] Trying yt-dlp + WARP proxy…")
-    try:
-        ydl_opts = {
-            "format":      "bestaudio/best",
-            "outtmpl":     os.path.join(temp_dir, f"{file_id}.%(ext)s"),
-            "quiet":       True,
-            "no_warnings": True,
-            "proxy":       "socks5://127.0.0.1:40000",
+    # Cookies file (add to all yt-dlp calls if present)
+    _COOKIES_FILE = "/app/cookies.txt"
+    _cookies_exist = os.path.exists(_COOKIES_FILE)
+
+    # Optional residential proxy from env
+    _ytdlp_proxy = os.environ.get("YTDLP_PROXY")
+
+    def _make_ydl_opts(player_clients, http_headers=None):
+        """Build yt-dlp options dict with optional cookies and proxy."""
+        opts = {
+            "format":         "bestaudio/best",
+            "outtmpl":        os.path.join(temp_dir, f"{file_id}.%(ext)s"),
+            "quiet":          True,
+            "no_warnings":    True,
+            "socket_timeout": 30,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["ios", "android_music", "web_embedded"],
-                    "player_skip":   ["webpage"],
+                    "player_client": player_clients,
                 }
             },
         }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        if http_headers:
+            opts["http_headers"] = http_headers
+        if _cookies_exist:
+            opts["cookiefile"] = _COOKIES_FILE
+        if _ytdlp_proxy:
+            opts["proxy"] = _ytdlp_proxy
+        return opts
+
+    def _run_ydl(opts):
+        """Run yt-dlp and return the output filepath, or None on failure."""
+        with yt_dlp.YoutubeDL(opts) as ydl:
             info        = ydl.extract_info(youtube_url, download=True)
             actual_file = ydl.prepare_filename(info)
             if not os.path.exists(actual_file):
                 for ext in (".webm", ".m4a", ".opus", ".mp4", ".ogg"):
                     candidate = os.path.splitext(actual_file)[0] + ext
                     if os.path.exists(candidate):
-                        actual_file = candidate
-                        break
-            if os.path.exists(actual_file):
+                        return candidate
+                return None
+            return actual_file
+
+    # ── Method 2: yt-dlp — tv_embedded + ios player clients ──────────────────
+    print(f"[{video_id}] Trying yt-dlp (tv_embedded + ios)…")
+    try:
+        opts = _make_ydl_opts(
+            player_clients=["tv_embedded", "ios"],
+            http_headers={
+                "User-Agent": "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X)",
+            },
+        )
+        actual_file = _run_ydl(opts)
+        if actual_file and os.path.exists(actual_file):
+            os.rename(actual_file, raw_filepath)
+            downloaded = True
+            print("✅ yt-dlp tv_embedded+ios: success")
+    except Exception as e:
+        print(f"yt-dlp tv_embedded+ios failed: {e}")
+
+    # ── Method 3: yt-dlp — web_embedded + android_music player clients ────────
+    if not downloaded:
+        print(f"[{video_id}] Trying yt-dlp (web_embedded + android_music)…")
+        try:
+            opts = _make_ydl_opts(
+                player_clients=["web_embedded", "android_music"],
+            )
+            actual_file = _run_ydl(opts)
+            if actual_file and os.path.exists(actual_file):
                 os.rename(actual_file, raw_filepath)
                 downloaded = True
-                print("✅ yt-dlp WARP: success")
-    except Exception as e:
-        print(f"yt-dlp WARP failed: {e}")
-
-    # ── Method 3: yt-dlp direct (no proxy) ───────────────────────────────────
-    if not downloaded:
-        print(f"[{video_id}] Trying yt-dlp direct…")
-        try:
-            ydl_opts = {
-                "format":      "bestaudio/best",
-                "outtmpl":     os.path.join(temp_dir, f"{file_id}.%(ext)s"),
-                "quiet":       True,
-                "no_warnings": True,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["ios", "android_music", "web_embedded"],
-                        "player_skip":   ["webpage"],
-                    }
-                },
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info        = ydl.extract_info(youtube_url, download=True)
-                actual_file = ydl.prepare_filename(info)
-                if not os.path.exists(actual_file):
-                    for ext in (".webm", ".m4a", ".opus", ".mp4", ".ogg"):
-                        candidate = os.path.splitext(actual_file)[0] + ext
-                        if os.path.exists(candidate):
-                            actual_file = candidate
-                            break
-                if os.path.exists(actual_file):
-                    os.rename(actual_file, raw_filepath)
-                    downloaded = True
-                    print("✅ yt-dlp direct: success")
+                print("✅ yt-dlp web_embedded+android_music: success")
         except Exception as e:
-            print(f"yt-dlp direct failed: {e}")
+            print(f"yt-dlp web_embedded+android_music failed: {e}")
 
-    # ── Method 4: Invidious proxy pool (chunked Range requests) ──────────────
+    # ── Method 4: Invidious pool — 10 s timeout, skip non-200, highest bitrate ─
     if not downloaded:
         print(f"[{video_id}] Trying Invidious pool…")
         audio_url = None
         for instance in INVIDIOUS_INSTANCES:
             try:
                 api_url = f"{instance}/api/v1/videos/{video_id}?fields=adaptiveFormats"
-                resp    = requests.get(api_url, timeout=12,
-                                       headers={"User-Agent": random.choice(_USER_AGENTS)})
+                resp    = requests.get(
+                    api_url,
+                    timeout=10,
+                    headers={"User-Agent": random.choice(_USER_AGENTS)},
+                )
                 if resp.status_code != 200:
+                    print(f"  Invidious {instance}: HTTP {resp.status_code}, skipping")
                     continue
                 best, best_br = None, 0
                 for fmt in resp.json().get("adaptiveFormats", []):
@@ -462,8 +476,10 @@ def download_audio(video_id: str):
                     audio_url = best["url"]
                     print(f"  Invidious: got URL from {instance} @ {best_br} bps")
                     break
+                else:
+                    print(f"  Invidious {instance}: no audio formats found, skipping")
             except Exception as e:
-                print(f"  Invidious {instance}: {e}")
+                print(f"  Invidious {instance}: {e}, skipping")
 
         if audio_url:
             if _chunked_range_download(audio_url, raw_filepath):
@@ -471,7 +487,10 @@ def download_audio(video_id: str):
                 print("✅ Invidious chunked: success")
 
     if not downloaded:
-        raise Exception("All download methods failed. Try again later.")
+        raise Exception(
+            "All download methods failed (yt-dlp tv_embedded+ios, web_embedded+android_music, Invidious). "
+            "Try again later or set YTDLP_PROXY to a residential proxy."
+        )
 
     # Convert raw → FLAC
     try:
