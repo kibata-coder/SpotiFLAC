@@ -73,14 +73,24 @@ def download_audio(video_id):
     temp_dir = tempfile.gettempdir()
     file_id = str(uuid.uuid4())
     url = f"https://www.youtube.com/watch?v={video_id}"
-
-    # We use pytubefix with the TV client to bypass 429 Too Many Requests
-    yt = YouTube(url, client='TV', use_po_token=True)
     
-    # Extract the highest quality audio stream
-    stream = yt.streams.get_audio_only()
+    # Robust fallback chain for bypassing YouTube's 429 Too Many Requests datacenter blocks
+    clients = ['IOS', 'ANDROID_MUSIC', 'TV', 'WEB_CREATOR']
+    stream = None
+    yt = None
+    
+    for c in clients:
+        try:
+            yt = YouTube(url, client=c, use_po_token=True)
+            stream = yt.streams.get_audio_only()
+            if stream:
+                print(f"Successfully connected using client: {c}")
+                break
+        except Exception as e:
+            print(f"Client {c} failed: {e}")
+            
     if not stream:
-        raise Exception('Failed to find an audio stream for this track')
+        raise Exception('All YouTube clients failed to bypass the 429 block for this track.')
         
     ext = stream.subtype
     filename = f"{file_id}.{ext}"
