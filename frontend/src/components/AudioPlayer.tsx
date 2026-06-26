@@ -136,8 +136,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     else onPlayPause();
   };
 
-  if (!currentTrack) return null;
-
   const lyricsLines = lyricsText ? lyricsText.split('\n') : [];
   const activeLineIndex = duration > 0 ? Math.min(Math.floor((progress / duration) * lyricsLines.length), lyricsLines.length - 1) : 0;
 
@@ -149,6 +147,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
     }
   }, [activeLineIndex, showLyrics]);
+
+  if (!currentTrack) return null;
 
   /* ──────────────── LYRICS OVERLAY ──────────────── */
   const lyricsPanelContent = (
