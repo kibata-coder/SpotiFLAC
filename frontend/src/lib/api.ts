@@ -1,4 +1,3 @@
-// Replace this with your actual Railway URL once deployed
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
 
 export interface SearchResult {
@@ -28,48 +27,41 @@ export async function searchSpotify(query: string, searchType: string = 'track')
   return response.json();
 }
 
-export async function downloadTrackWeb(spotifyId: string, service: string, trackName: string): Promise<void> {
+export async function downloadTrackWeb(spotifyId: string, trackName: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/download`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      spotify_id: spotifyId,
-      service: service
-    }),
+    body: JSON.stringify({ spotify_id: spotifyId }),
   });
 
   if (!response.ok) {
-    let errorMsg = "Failed to process and stream audio from the server.";
+    let errorMsg = "Download failed. Please try again.";
     try {
       const errorData = await response.json();
-      if (errorData.error) errorMsg = errorData.error;
+      if (errorData.error)   errorMsg = errorData.error;
       else if (errorData.message) errorMsg = errorData.message;
-      else if (errorData.Error) errorMsg = errorData.Error;
     } catch (e) {}
     throw new Error(errorMsg);
   }
 
-  // Convert the binary stream into a browser download
-  const blob = await response.blob();
+  // Trigger browser download
+  const blob        = await response.blob();
   const downloadUrl = window.URL.createObjectURL(blob);
-  
-  const link = document.createElement("a");
-  link.href = downloadUrl;
-  
-  // Clean up filename to prevent weird browser saving bugs
-  const safeTrackName = trackName.replace(/[^a-zA-Z0-9 -]/g, "");
+  const link        = document.createElement("a");
+  link.href         = downloadUrl;
+
+  const safeTrackName = trackName.replace(/[^a-zA-Z0-9 \-_]/g, "");
   link.download = `${safeTrackName}.flac`;
-  
+
   document.body.appendChild(link);
   link.click();
-  
-  // Memory cleanup
+
   setTimeout(() => {
     window.URL.revokeObjectURL(downloadUrl);
     link.remove();
   }, 1000);
 }
 
-export function getStreamUrl(spotifyId: string, service: string = 'tidal'): string {
-  return `${API_BASE_URL}/api/stream?spotify_id=${encodeURIComponent(spotifyId)}&service=${encodeURIComponent(service)}`;
+export function getStreamUrl(spotifyId: string): string {
+  return `${API_BASE_URL}/api/stream?spotify_id=${encodeURIComponent(spotifyId)}`;
 }

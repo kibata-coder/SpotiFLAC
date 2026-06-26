@@ -27,7 +27,6 @@ export const SearchPanel: React.FC = () => {
       setResults(data || []);
     } catch (error) {
       console.error('Search error:', error);
-      alert('Search failed. Ensure your backend is reachable.');
     } finally {
       setLoading(false);
     }
@@ -37,11 +36,10 @@ export const SearchPanel: React.FC = () => {
     if (downloadingIds[track.id]) return;
     setDownloadingIds(prev => ({ ...prev, [track.id]: true }));
     try {
-      await downloadTrackWeb(track.id, 'tidal', track.name);
+      await downloadTrackWeb(track.id, track.name);
       setDownloadedIds(prev => new Set([...prev, track.id]));
     } catch (error: any) {
       console.error('Download failed:', error);
-      alert(error.message || 'Failed to process and stream file from server.');
     } finally {
       setDownloadingIds(prev => ({ ...prev, [track.id]: false }));
     }

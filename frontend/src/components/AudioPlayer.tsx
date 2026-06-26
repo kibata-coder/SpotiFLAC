@@ -103,10 +103,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!currentTrack || downloadingFlac) return;
     setDownloadingFlac(true);
     try {
-      await downloadTrackWeb(currentTrack.id, 'tidal', currentTrack.name);
+      await downloadTrackWeb(currentTrack.id, currentTrack.name);
       setDownloadedFlac(true);
     } catch (err: any) {
-      alert(err.message || 'Download failed');
+      console.error('FLAC download failed:', err.message || err);
     } finally {
       setDownloadingFlac(false);
     }
