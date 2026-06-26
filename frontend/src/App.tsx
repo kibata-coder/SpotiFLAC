@@ -258,6 +258,12 @@ function App() {
         currentIndex={currentIndex}
         onPrev={handlePrev}
         onNext={handleNext}
+        onError={() => {
+          console.warn("YouTube embedded playback failed. Falling back to backend stream...");
+          if (currentTrack) {
+            setStreamUrl(`https://web-production-9dcae.up.railway.app/api/stream?spotify_id=${currentTrack.id}`);
+          }
+        }}
       />
     </PlayerContext.Provider>
   );

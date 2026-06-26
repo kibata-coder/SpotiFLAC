@@ -20,6 +20,7 @@ interface AudioPlayerProps {
   currentIndex?: number;
   onPrev?: (forceWrap?: boolean) => void;
   onNext?: (forceWrap?: boolean) => void;
+  onError?: (e: any) => void;
 }
 
 type RepeatMode = 'none' | 'all' | 'one';
@@ -33,6 +34,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   currentIndex = -1,
   onPrev,
   onNext,
+  onError,
 }) => {
   const playerRef = useRef<ReactPlayer>(null);
   const [progress, setProgress] = useState(0);
@@ -262,6 +264,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             }}
             onDuration={d => setDuration(d)}
             onEnded={handleEnded}
+            onError={onError}
             width="0" height="0"
             config={{ youtube: { playerVars: { showinfo: 0, controls: 0 } } }}
             style={{ display: 'none' }}
