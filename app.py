@@ -269,6 +269,14 @@ def get_lyrics():
                     data = res.json()
                     if data.get("syncedLyrics"):
                         return jsonify({"lyrics": data["syncedLyrics"], "synced": True})
+                
+                # Fallback: search lrclib
+                search_res = requests.get("https://lrclib.net/api/search", params={"q": f"{title} {artists}"}, headers={"User-Agent": "SpotiFLAC"}, timeout=5)
+                if search_res.status_code == 200:
+                    results = search_res.json()
+                    for r in results:
+                        if r.get("syncedLyrics"):
+                            return jsonify({"lyrics": r["syncedLyrics"], "synced": True})
         except Exception as e:
             print(f"LRCLIB error: {e}")
 
