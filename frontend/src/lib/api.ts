@@ -1,5 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8080";
-
+// Hardcoded to Railway production to ensure mobile browsers hit the right backend
+const API_BASE_URL = "https://web-production-9dcae.up.railway.app";
 export interface SearchResult {
   id: string;
   name: string;
