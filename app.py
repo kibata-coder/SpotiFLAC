@@ -67,9 +67,20 @@ def search():
 
 
 import subprocess
-import tempfile
-import uuid
-import os
+import requests
+import json
+import urllib.request
+
+# Rotating pool of public Invidious API instances
+# These are community-run alternative YouTube frontends that bypass datacenter IP blocks
+INVIDIOUS_INSTANCES = [
+    "https://invidious.nerdvpn.de",
+    "https://inv.nadeko.net",
+    "https://invidious.privacydev.net",
+    "https://iv.melmac.space",
+    "https://invidious.io.lol",
+    "https://invidious.jing.rocks",
+]
 
 def download_audio(video_id):
     if not video_id:
@@ -79,68 +90,77 @@ def download_audio(video_id):
     temp_dir = tempfile.gettempdir()
     file_id = str(uuid.uuid4())
     
-    # Use yt-dlp to extract track info and download
-    # We use the rescue parameters: "youtube:player_client=tv,web_embedded;player_skip=webpage" and --force-ipv4
-    
-    # First, get video title and artist
-    # (Optional, but yt-dlp can output JSON. We will just use oEmbed or yt-dlp to get title)
-    import urllib.request, json
+    # Step 1: Get track title/artist via YouTube oEmbed (never blocked)
     track_title = "Unknown Track"
     artist = "Unknown Artist"
     try:
         oembed = f"https://www.youtube.com/oembed?url={youtube_url}&format=json"
-        with urllib.request.urlopen(oembed, timeout=10) as r:
-            data = json.loads(r.read())
-            track_title = data.get("title", "Unknown Track")
-            artist = data.get("author_name", "Unknown Artist")
+        with urllib.request.urlopen(oembed, timeout=8) as r:
+            meta = json.loads(r.read())
+            track_title = meta.get("title", "Unknown Track")
+            artist = meta.get("author_name", "Unknown Artist")
     except Exception as e:
-        print(f"Failed to fetch metadata via oEmbed: {e}")
-        
-    # Download the best audio using yt-dlp
-    downloaded_filepath = os.path.join(temp_dir, f"{file_id}.%(ext)s")
+        print(f"oEmbed metadata failed: {e}")
+
+    # Step 2: Ask public Invidious instances for a direct audio stream URL
+    # Invidious servers run on residential/non-datacenter IPs so YouTube allows them
+    direct_audio_url = None
+    for instance in INVIDIOUS_INSTANCES:
+        try:
+            api_url = f"{instance}/api/v1/videos/{video_id}?fields=adaptiveFormats,formatStreams"
+            print(f"Trying Invidious instance: {instance}")
+            resp = requests.get(api_url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            
+            # Look for the best audio-only format
+            best_audio = None
+            best_bitrate = 0
+            for fmt in data.get("adaptiveFormats", []):
+                if fmt.get("type", "").startswith("audio/") and fmt.get("url"):
+                    bitrate = int(fmt.get("bitrate", 0))
+                    if bitrate > best_bitrate:
+                        best_bitrate = bitrate
+                        best_audio = fmt
+                        
+            if best_audio:
+                direct_audio_url = best_audio["url"]
+                print(f"Got audio URL from {instance} at {best_bitrate} bps")
+                break
+        except Exception as e:
+            print(f"Invidious instance {instance} failed: {e}")
+
+    if not direct_audio_url:
+        raise Exception("All Invidious proxy instances failed to provide an audio URL. Please try again later.")
+
+    # Step 3: Download the audio through the Invidious proxy URL
+    raw_filepath = os.path.join(temp_dir, f"{file_id}.webm")
+    try:
+        with requests.get(direct_audio_url, stream=True, timeout=60, headers={"User-Agent": "Mozilla/5.0"}) as dl:
+            dl.raise_for_status()
+            with open(raw_filepath, 'wb') as f:
+                for chunk in dl.iter_content(chunk_size=65536):
+                    f.write(chunk)
+    except Exception as e:
+        raise Exception(f"Failed to download audio from proxy: {e}")
+
+    # Step 4: Convert to FLAC using ffmpeg
+    import imageio_ffmpeg
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    flac_filepath = os.path.join(temp_dir, f"{file_id}.flac")
     
     try:
         subprocess.run([
-            "yt-dlp",
-            "--extractor-args", "youtube:player_client=tv,web_embedded;player_skip=webpage",
-            "--force-ipv4",
-            "-f", "bestaudio/best",
-            "-o", downloaded_filepath,
-            youtube_url
-        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
-        error_output = e.stderr.decode('utf-8', errors='ignore') if e.stderr else "Unknown error"
-        raise Exception(f"yt-dlp failed to download the audio. The datacenter ban could not be bypassed. Error: {error_output}")
-        
-    # Find the actual downloaded file since yt-dlp replaces %(ext)s
-    actual_downloaded_file = None
-    for f in os.listdir(temp_dir):
-        if f.startswith(file_id) and f != f"{file_id}.flac":
-            actual_downloaded_file = os.path.join(temp_dir, f)
-            break
-            
-    if not actual_downloaded_file:
-        raise Exception("Failed to find downloaded audio file.")
-        
-    # Convert to FLAC using ffmpeg via imageio_ffmpeg
-    import imageio_ffmpeg
-    
-    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    flac_filename = f"{file_id}.flac"
-    flac_filepath = os.path.join(temp_dir, flac_filename)
-    
-    subprocess.run([
-        ffmpeg_exe,
-        '-y',
-        '-i', actual_downloaded_file,
-        flac_filepath
-    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    # Optionally remove the original downloaded file
-    try:
-        os.remove(actual_downloaded_file)
-    except:
-        pass
+            ffmpeg_exe, '-y', '-i', raw_filepath, flac_filepath
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        raise Exception("ffmpeg conversion to FLAC failed.")
+    finally:
+        try:
+            os.remove(raw_filepath)
+        except:
+            pass
     
     return flac_filepath, track_title, artist, 'flac'
 
