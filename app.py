@@ -66,51 +66,83 @@ def search():
         return jsonify({'error': str(e)}), 500
 
 
-import requests
+import subprocess
+import tempfile
+import uuid
+import os
 
 def download_audio(video_id):
     if not video_id:
         raise Exception('Missing video_id')
         
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
+    temp_dir = tempfile.gettempdir()
+    file_id = str(uuid.uuid4())
     
-    # List of public Cobalt instances to act as a proxy pool
-    cobalt_instances = [
-        "https://cobalt.keller-oliver.de",
-        "https://api.cobalt.tools",
-        "https://co.wuk.sh",
-        "https://cobalt.kheina.com"
-    ]
+    # Use yt-dlp to extract track info and download
+    # We use the rescue parameters: "youtube:player_client=tv,web_embedded;player_skip=webpage" and --force-ipv4
     
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    }
-    
-    payload = {
-        "url": youtube_url,
-        "isAudioOnly": True,
-        "aFormat": "best"
-    }
-    
-    direct_url = None
-    for instance in cobalt_instances:
-        try:
-            print(f"Trying Cobalt instance: {instance}")
-            response = requests.post(f"{instance}/api/json", json=payload, headers=headers, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                if "url" in data:
-                    direct_url = data["url"]
-                    print(f"Successfully got download URL from {instance}")
-                    break
-        except Exception as e:
-            print(f"Failed to use instance {instance}: {e}")
-            
-    if not direct_url:
-        raise Exception("All public proxy instances failed. The datacenter ban could not be bypassed.")
+    # First, get video title and artist
+    # (Optional, but yt-dlp can output JSON. We will just use oEmbed or yt-dlp to get title)
+    import urllib.request, json
+    track_title = "Unknown Track"
+    artist = "Unknown Artist"
+    try:
+        oembed = f"https://www.youtube.com/oembed?url={youtube_url}&format=json"
+        with urllib.request.urlopen(oembed, timeout=10) as r:
+            data = json.loads(r.read())
+            track_title = data.get("title", "Unknown Track")
+            artist = data.get("author_name", "Unknown Artist")
+    except Exception as e:
+        print(f"Failed to fetch metadata via oEmbed: {e}")
         
-    return direct_url
+    # Download the best audio using yt-dlp
+    downloaded_filepath = os.path.join(temp_dir, f"{file_id}.%(ext)s")
+    
+    try:
+        subprocess.run([
+            "yt-dlp",
+            "--extractor-args", "youtube:player_client=tv,web_embedded;player_skip=webpage",
+            "--force-ipv4",
+            "-f", "bestaudio/best",
+            "-o", downloaded_filepath,
+            youtube_url
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    except subprocess.CalledProcessError as e:
+        error_output = e.stderr.decode('utf-8', errors='ignore') if e.stderr else "Unknown error"
+        raise Exception(f"yt-dlp failed to download the audio. The datacenter ban could not be bypassed. Error: {error_output}")
+        
+    # Find the actual downloaded file since yt-dlp replaces %(ext)s
+    actual_downloaded_file = None
+    for f in os.listdir(temp_dir):
+        if f.startswith(file_id) and f != f"{file_id}.flac":
+            actual_downloaded_file = os.path.join(temp_dir, f)
+            break
+            
+    if not actual_downloaded_file:
+        raise Exception("Failed to find downloaded audio file.")
+        
+    # Convert to FLAC using ffmpeg via imageio_ffmpeg
+    import imageio_ffmpeg
+    
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    flac_filename = f"{file_id}.flac"
+    flac_filepath = os.path.join(temp_dir, flac_filename)
+    
+    subprocess.run([
+        ffmpeg_exe,
+        '-y',
+        '-i', actual_downloaded_file,
+        flac_filepath
+    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    # Optionally remove the original downloaded file
+    try:
+        os.remove(actual_downloaded_file)
+    except:
+        pass
+    
+    return flac_filepath, track_title, artist, 'flac'
 
 
 @app.route('/api/download', methods=['POST'])
@@ -122,10 +154,19 @@ def download():
         return jsonify({'error': 'Missing spotify_id (videoId)'}), 400
 
     try:
-        direct_url = download_audio(spotify_id)
+        expected_filepath, track_title, artist, ext = download_audio(spotify_id)
         
-        # Return the direct download URL so the frontend can redirect the user to it
-        return jsonify({'download_url': direct_url})
+        if os.path.exists(expected_filepath):
+            from flask import send_file
+            # Send the file to the user
+            return send_file(
+                expected_filepath,
+                as_attachment=True,
+                download_name=f"{track_title} - {artist}.{ext}",
+                mimetype=f'audio/{ext}'
+            )
+        else:
+            return jsonify({'error': 'File conversion failed'}), 500
 
     except Exception as e:
         print(f"Error during download: {e}")
@@ -140,11 +181,18 @@ def stream():
         return jsonify({'error': 'Missing spotify_id (videoId)'}), 400
 
     try:
-        direct_url = download_audio(spotify_id)
+        expected_filepath, track_title, artist, ext = download_audio(spotify_id)
         
-        # Redirect the stream player to the direct audio URL
-        from flask import redirect
-        return redirect(direct_url)
+        if os.path.exists(expected_filepath):
+            from flask import send_file
+            # Send the file without as_attachment so it streams in browser
+            return send_file(
+                expected_filepath,
+                as_attachment=False,
+                mimetype=f'audio/{ext}'
+            )
+        else:
+            return jsonify({'error': 'File conversion failed'}), 500
 
     except Exception as e:
         print(f"Error during stream: {e}")

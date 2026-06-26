@@ -5,3 +5,4 @@ ytmusicapi==1.7.3
 gunicorn==22.0.0
 flask-cors
 imageio-ffmpeg
+yt-dlp

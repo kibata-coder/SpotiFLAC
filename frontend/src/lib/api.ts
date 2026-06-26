@@ -49,23 +49,25 @@ export async function downloadTrackWeb(spotifyId: string, service: string, track
     throw new Error(errorMsg);
   }
 
-  // Parse the JSON response to get the direct Cobalt URL
-  const data = await response.json();
-  if (!data.download_url) {
-    throw new Error("No download URL returned from server.");
-  }
-
-  // Redirect the browser to the direct Cobalt download URL
+  // Convert the binary stream into a browser download
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  
   const link = document.createElement("a");
-  link.href = data.download_url;
+  link.href = downloadUrl;
   
   // Clean up filename to prevent weird browser saving bugs
   const safeTrackName = trackName.replace(/[^a-zA-Z0-9 -]/g, "");
-  link.download = `${safeTrackName}.flac`; // Force download attribute
+  link.download = `${safeTrackName}.flac`;
   
   document.body.appendChild(link);
   link.click();
-  link.remove();
+  
+  // Memory cleanup
+  setTimeout(() => {
+    window.URL.revokeObjectURL(downloadUrl);
+    link.remove();
+  }, 1000);
 }
 
 export function getStreamUrl(spotifyId: string, service: string = 'tidal'): string {
