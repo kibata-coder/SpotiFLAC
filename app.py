@@ -119,155 +119,35 @@ def _get_metadata(video_id: str):
 
 def download_audio(video_id: str):
     """
-    Download audio for a YouTube video ID.
+    Download audio for a YouTube video ID using freyr-js.
     Returns (filepath, track_title, artist, extension)
-
-    Waterfall:
-      1. yt-dlp with tv_embedded + ios player clients (+ cookies/proxy if set)
-      2. yt-dlp with web_embedded + android_music player clients (+ cookies/proxy if set)
-      3. Invidious pool with chunked Range download
-      4. Raise exception if all fail
     """
-    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-    temp_dir    = tempfile.gettempdir()
-    file_id     = str(uuid.uuid4())
-    ffmpeg_exe  = imageio_ffmpeg.get_ffmpeg_exe()
-
+    temp_dir = tempfile.gettempdir()
     track_title, artist = _get_metadata(video_id)
-
-    raw_filepath  = os.path.join(temp_dir, f"{file_id}.raw")
-    flac_filepath = os.path.join(temp_dir, f"{file_id}.flac")
-    downloaded    = False
-
-    # Optional cookies file
-    _cookies_exist = os.path.exists(COOKIES_PATH)
-
-    # Optional residential proxy from env
-    _ytdlp_proxy = os.environ.get("YTDLP_PROXY")
-
-    def _make_ydl_opts(player_clients, http_headers=None):
-        """Build yt-dlp options dict with optional cookies and proxy."""
-        opts = {
-            "format":         "bestaudio/best",
-            "outtmpl":        os.path.join(temp_dir, f"{file_id}.%(ext)s"),
-            "quiet":          True,
-            "no_warnings":    True,
-            "socket_timeout": 30,
-            "extractor_args": {
-                "youtube": {
-                    "player_client": player_clients,
-                }
-            },
-        }
-        if http_headers:
-            opts["http_headers"] = http_headers
-        if _cookies_exist:
-            opts.update(_get_cookie_opts())
-        if _ytdlp_proxy:
-            opts["proxy"] = _ytdlp_proxy
-        return opts
-
-    def _run_ydl(opts):
-        """Run yt-dlp and return the output filepath, or None on failure."""
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info        = ydl.extract_info(youtube_url, download=True)
-            actual_file = ydl.prepare_filename(info)
-            if not os.path.exists(actual_file):
-                for ext in (".webm", ".m4a", ".opus", ".mp4", ".ogg"):
-                    candidate = os.path.splitext(actual_file)[0] + ext
-                    if os.path.exists(candidate):
-                        return candidate
-                return None
-            return actual_file
-
-    # ── Method 1: yt-dlp — tv_embedded + ios ─────────────────────────────────
-    print(f"\n[{video_id}] Trying yt-dlp (tv_embedded + ios)…")
+    search_query = f"{track_title} {artist}"
+    
+    print(f"\n[{video_id}] Invoking freyr-js for: {search_query}...")
     try:
-        opts = _make_ydl_opts(
-            player_clients=["tv_embedded", "ios"],
-            http_headers={
-                "User-Agent": "com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X)",
-            },
-        )
-        actual_file = _run_ydl(opts)
-        if actual_file and os.path.exists(actual_file):
-            os.rename(actual_file, raw_filepath)
-            downloaded = True
-            print("✅ yt-dlp tv_embedded+ios: success")
-    except Exception as e:
-        print(f"yt-dlp tv_embedded+ios failed: {e}")
-
-    # ── Method 2: yt-dlp — web_embedded + android_music ──────────────────────
-    if not downloaded:
-        print(f"[{video_id}] Trying yt-dlp (web_embedded + android_music)…")
-        try:
-            opts = _make_ydl_opts(
-                player_clients=["web_embedded", "android_music"],
-            )
-            actual_file = _run_ydl(opts)
-            if actual_file and os.path.exists(actual_file):
-                os.rename(actual_file, raw_filepath)
-                downloaded = True
-                print("✅ yt-dlp web_embedded+android_music: success")
-        except Exception as e:
-            print(f"yt-dlp web_embedded+android_music failed: {e}")
-
-    # ── Method 3: Invidious pool — 10 s timeout, skip non-200, highest bitrate
-    if not downloaded:
-        print(f"[{video_id}] Trying Invidious pool…")
-        audio_url = None
-        for instance in INVIDIOUS_INSTANCES:
-            try:
-                api_url = f"{instance}/api/v1/videos/{video_id}?fields=adaptiveFormats"
-                resp    = requests.get(
-                    api_url,
-                    timeout=10,
-                    headers={"User-Agent": random.choice(_USER_AGENTS)},
-                )
-                if resp.status_code != 200:
-                    print(f"  Invidious {instance}: HTTP {resp.status_code}, skipping")
-                    continue
-                best, best_br = None, 0
-                for fmt in resp.json().get("adaptiveFormats", []):
-                    if fmt.get("type", "").startswith("audio/") and fmt.get("url"):
-                        br = int(fmt.get("bitrate", 0))
-                        if br > best_br:
-                            best_br, best = br, fmt
-                if best:
-                    audio_url = best["url"]
-                    print(f"  Invidious: got URL from {instance} @ {best_br} bps")
-                    break
-                else:
-                    print(f"  Invidious {instance}: no audio formats found, skipping")
-            except Exception as e:
-                print(f"  Invidious {instance}: {e}, skipping")
-
-        if audio_url:
-            if _chunked_range_download(audio_url, raw_filepath):
-                downloaded = True
-                print("✅ Invidious chunked: success")
-
-    if not downloaded:
-        raise Exception(
-            "All download methods failed (yt-dlp tv_embedded+ios, web_embedded+android_music, Invidious). "
-            "Try again later or set YTDLP_PROXY to a residential proxy."
-        )
-
-    # Convert raw → FLAC
-    try:
+        # Create a unique directory to easily locate the downloaded file
+        unique_dir = os.path.join(temp_dir, str(uuid.uuid4()))
+        os.makedirs(unique_dir, exist_ok=True)
+        
+        # freyr requires nodejs and will search spotify, download, and tag the .m4a
         subprocess.run(
-            [ffmpeg_exe, "-y", "-i", raw_filepath, "-c:a", "flac", flac_filepath],
-            check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            ["freyr", "get", search_query, "-d", unique_dir, "--no-playlist"],
+            check=True
         )
-    except subprocess.CalledProcessError as e:
-        raise Exception(f"ffmpeg FLAC conversion failed: {e}")
-    finally:
-        try:
-            os.remove(raw_filepath)
-        except Exception:
-            pass
-
-    return flac_filepath, track_title, artist, "flac"
+        
+        # freyr saves as .m4a
+        m4a_files = [f for f in os.listdir(unique_dir) if f.endswith(".m4a")]
+        if not m4a_files:
+            raise Exception("freyr-js completed but no .m4a file was found.")
+            
+        m4a_filepath = os.path.join(unique_dir, m4a_files[0])
+        return m4a_filepath, track_title, artist, "m4a"
+        
+    except Exception as e:
+        raise Exception(f"freyr-js failed: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

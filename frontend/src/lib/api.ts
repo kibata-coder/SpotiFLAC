@@ -51,7 +51,10 @@ export async function downloadTrackWeb(spotifyId: string, trackName: string): Pr
   link.href         = downloadUrl;
 
   const safeTrackName = trackName.replace(/[^a-zA-Z0-9 \-_]/g, "");
-  link.download = `${safeTrackName}.flac`;
+  let ext = "flac";
+  const contentType = response.headers.get("Content-Type");
+  if (contentType?.includes("m4a") || contentType?.includes("mp4")) ext = "m4a";
+  link.download = `${safeTrackName}.${ext}`;
 
   document.body.appendChild(link);
   link.click();

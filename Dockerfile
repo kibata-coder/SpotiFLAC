@@ -24,6 +24,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --upgrade yt-dlp
 
+# Install Node.js 20.x, AtomicParsley, and Freyr
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs atomicparsley --no-install-recommends \
+    && npm install -g freyr
+
 
 COPY . .
 
