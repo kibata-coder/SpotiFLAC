@@ -1,11 +1,14 @@
 import React, { useState, useContext } from 'react';
-import { Search as SearchIcon, Download, Loader2, Music, Disc3, Wand2, Play } from 'lucide-react';
-import { searchSpotify, downloadTrackWeb, getStreamUrl } from '../lib/api';
+import {
+  Search as SearchIcon, Download, Loader2, Music,
+  Disc3, Wand2, Play, Pause,
+} from 'lucide-react';
+import { searchSpotify, downloadTrackWeb } from '../lib/api';
 import type { SearchResult } from '../lib/api';
 import { PlayerContext } from '../App';
 
 export const SearchPanel: React.FC = () => {
-  const { playTrack } = useContext(PlayerContext);
+  const { playTrack, currentTrack, isPlaying } = useContext(PlayerContext);
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState('track');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -44,6 +47,15 @@ export const SearchPanel: React.FC = () => {
     }
   };
 
+  const handlePlay = (item: SearchResult, index: number) => {
+    playTrack(
+      item,
+      `https://www.youtube.com/watch?v=${item.id}`,
+      results,
+      index,
+    );
+  };
+
   const formatDuration = (ms?: number) => {
     if (!ms) return '';
     const minutes = Math.floor(ms / 60000);
@@ -54,9 +66,7 @@ export const SearchPanel: React.FC = () => {
   return (
     <div className="w-full flex flex-col pb-12">
 
-      {/* ── Sticky header: title + search form ─────────────── */}
-      {/* Negative margin breaks out of the parent padding, then re-applies it
-          so the sticky bar spans edge-to-edge while content stays padded */}
+      {/* ── Sticky header ─────────────────────────────── */}
       <div
         className="sticky top-0 z-20 -mx-6 lg:-mx-8 px-6 lg:px-8 pt-5 pb-4 mb-4"
         style={{
@@ -66,19 +76,16 @@ export const SearchPanel: React.FC = () => {
           borderBottom: '1px solid rgba(255,255,255,0.07)',
         }}
       >
-        {/* Page title */}
         <div className="mb-4">
           <h1 className="text-2xl font-black text-white tracking-tight leading-none mb-0.5">
-            Search &amp; Download
+            Search & Download
           </h1>
           <p className="text-xs" style={{ color: 'var(--sp-subdued)' }}>
-            Find any track or album and download in lossless FLAC quality
+            Find any track and download in lossless FLAC quality
           </p>
         </div>
 
-        {/* Search form */}
         <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 max-w-3xl">
-          {/* Input */}
           <div className="relative flex-1">
             <SearchIcon
               className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5"
@@ -96,7 +103,6 @@ export const SearchPanel: React.FC = () => {
           </div>
 
           <div className="flex gap-2 shrink-0">
-            {/* Type selector */}
             <div
               className="relative flex items-center gap-2 px-4 rounded-full"
               style={{ background: '#242424' }}
@@ -114,7 +120,6 @@ export const SearchPanel: React.FC = () => {
               </select>
             </div>
 
-            {/* Submit */}
             <button
               type="submit"
               id="search-submit"
@@ -130,57 +135,85 @@ export const SearchPanel: React.FC = () => {
         </form>
       </div>
 
-      {/* ── Results column header ──────────────────────────── */}
+      {/* ── Column headers ─────────────────────────────── */}
       {results.length > 0 && !loading && (
         <div
-          className="grid gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in grid-cols-[1fr_auto] sm:grid-cols-[2.5rem_1fr_5rem_9rem]"
+          className="grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in"
           style={{
+            gridTemplateColumns: '2.5rem 1fr 4rem 10rem',
             color: 'var(--sp-subdued)',
             borderColor: 'var(--sp-border)',
           }}
         >
-          <div className="text-center hidden sm:block">#</div>
+          <div className="text-center">#</div>
           <div>Title</div>
           <div className="text-right hidden sm:block">Duration</div>
-          <div className="text-center">Actions</div>
+          <div className="text-right">Actions</div>
         </div>
       )}
 
-      {/* ── Results list ──────────────────────────────────── */}
-      <div className="flex flex-col gap-0.5">
+      {/* ── Results list ─────────────────────────────── */}
+      <div className="flex flex-col gap-0">
         {results.map((item, index) => {
+          const isCurrentlyPlaying = currentTrack?.id === item.id && isPlaying;
+          const isCurrentTrack = currentTrack?.id === item.id;
           const isDownloading = !!downloadingIds[item.id];
           const isDownloaded = downloadedIds.has(item.id);
 
           return (
-              <div
+            <div
               key={item.id}
               id={`track-${item.id}`}
-              className="sp-track-row group animate-fade-in grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 hover:bg-white/5 rounded-md grid-cols-[1fr_auto] sm:grid-cols-[2.5rem_1fr_5rem_9rem]"
+              className="sp-track-row group animate-fade-in"
               style={{
-                animationDelay: `${Math.min(index * 30, 400)}ms`,
+                display: 'grid',
+                gridTemplateColumns: '2.5rem 1fr 4rem 10rem',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.375rem 0.5rem',
+                borderRadius: 6,
+                animationDelay: `${Math.min(index * 25, 400)}ms`,
+                background: isCurrentTrack ? 'rgba(29,185,84,0.08)' : undefined,
               }}
             >
-              {/* Row number / play icon */}
-              <div className="sp-row-num-wrap hidden sm:flex">
+              {/* Row num / play icon */}
+              <div className="sp-row-num-wrap flex items-center justify-center">
                 <span
                   className="sp-row-num"
-                  style={{ color: isDownloaded ? 'var(--sp-green)' : 'var(--sp-subdued)' }}
+                  style={{ color: isCurrentTrack ? 'var(--sp-green)' : 'var(--sp-subdued)' }}
                 >
-                  {index + 1}
+                  {isCurrentlyPlaying
+                    ? <span className="sp-eq-bars"><span /><span /><span /></span>
+                    : index + 1
+                  }
                 </span>
-                <span 
-                  className="sp-row-play" 
-                  onClick={() => playTrack(item, `https://www.youtube.com/watch?v=${item.id}`)}
+                <span
+                  className="sp-row-play"
+                  onClick={() => handlePlay(item, index)}
                 >
-                  <Play className="w-4 h-4" />
+                  {isCurrentlyPlaying
+                    ? <Pause className="w-4 h-4 fill-current" />
+                    : <Play className="w-4 h-4 fill-current" />
+                  }
                 </span>
               </div>
 
               {/* Track info */}
               <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
                 {item.cover ? (
-                  <img src={item.cover} alt="" className="w-10 h-10 sm:w-10 sm:h-10 rounded sp-cover flex-shrink-0" />
+                  <div className="relative flex-shrink-0 group/cover">
+                    <img src={item.cover} alt="" className="w-10 h-10 rounded sp-cover" />
+                    {/* Mobile play overlay on cover */}
+                    <button
+                      className="sm:hidden absolute inset-0 flex items-center justify-center bg-black/50 rounded opacity-0 group-hover/cover:opacity-100 transition-opacity"
+                      onClick={() => handlePlay(item, index)}
+                    >
+                      {isCurrentlyPlaying
+                        ? <Pause className="w-4 h-4 fill-white text-white" />
+                        : <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                      }
+                    </button>
+                  </div>
                 ) : (
                   <div
                     className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
@@ -192,13 +225,15 @@ export const SearchPanel: React.FC = () => {
                 <div className="flex flex-col min-w-0">
                   <span
                     className="font-semibold text-sm truncate leading-snug"
-                    style={{ color: isDownloaded ? 'var(--sp-green)' : '#fff' }}
+                    style={{ color: isCurrentTrack ? 'var(--sp-green)' : '#fff' }}
                   >
                     {item.name}
                   </span>
                   <span className="text-xs truncate leading-snug" style={{ color: 'var(--sp-subdued)' }}>
                     {item.artists}
-                    {item.album ? <span className="hidden sm:inline" style={{ color: 'var(--sp-muted)' }}> · {item.album}</span> : null}
+                    {item.album
+                      ? <span className="hidden sm:inline" style={{ color: 'var(--sp-muted)' }}> · {item.album}</span>
+                      : null}
                   </span>
                 </div>
               </div>
@@ -208,38 +243,45 @@ export const SearchPanel: React.FC = () => {
                 {formatDuration((item as any).duration_ms)}
               </div>
 
-              {/* Download action */}
-              <div className="sp-row-actions flex items-center justify-end gap-1 sm:gap-2">
+              {/* Actions — ALWAYS VISIBLE */}
+              <div className="flex items-center justify-end gap-1.5">
+                {/* Play/Pause */}
                 <button
-                  title="Play Preview / Stream"
-                  onClick={() => playTrack(item, `https://www.youtube.com/watch?v=${item.id}`)}
-                  className="sp-btn-outline flex items-center justify-center rounded-full w-8 h-8 sm:w-8 sm:h-8 p-0 border-zinc-600 hover:border-white text-zinc-300 hover:text-white"
+                  id={`play-${item.id}`}
+                  title={isCurrentlyPlaying ? 'Pause' : 'Play'}
+                  onClick={() => handlePlay(item, index)}
+                  className="sp-action-play-btn"
                 >
-                  <Play className="w-4 h-4 ml-0.5 fill-current" />
+                  {isCurrentlyPlaying
+                    ? <Pause className="w-3.5 h-3.5 fill-current" />
+                    : <Play className="w-3.5 h-3.5 fill-current ml-px" />
+                  }
                 </button>
 
+                {/* FLAC Download */}
                 {isDownloaded ? (
                   <span
-                    className="flex items-center gap-1.5 text-xs font-bold px-3 h-8 rounded-full"
-                    style={{ color: 'var(--sp-green)', background: 'var(--sp-green-dim)' }}
+                    id={`downloaded-${item.id}`}
+                    className="sp-action-done-badge"
                   >
-                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                     </svg>
+                    <span className="hidden sm:inline">Saved</span>
                   </span>
                 ) : (
                   <button
                     id={`download-${item.id}`}
                     onClick={() => handleDownload(item)}
                     disabled={isDownloading}
-                    className="sp-btn-outline flex items-center gap-1.5 text-xs h-8 px-3"
-                    style={{ letterSpacing: 'normal', textTransform: 'none' }}
+                    className="sp-action-flac-btn"
+                    title="Download FLAC"
                   >
-                    {isDownloading ? (
-                      <><Loader2 className="w-3.5 h-3.5 animate-spin" />…</>
-                    ) : (
-                      <><Download className="w-3.5 h-3.5" />FLAC</>
-                    )}
+                    {isDownloading
+                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      : <Download className="w-3.5 h-3.5" />
+                    }
+                    <span className="hidden sm:inline">{isDownloading ? '…' : 'FLAC'}</span>
                   </button>
                 )}
               </div>
@@ -248,7 +290,7 @@ export const SearchPanel: React.FC = () => {
         })}
       </div>
 
-      {/* ── Empty / idle state ────────────────────────────── */}
+      {/* ── Empty / idle state ─────────────────────── */}
       {!loading && results.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center animate-fade-in-scale">
           <div className="relative mb-8">
@@ -280,14 +322,14 @@ export const SearchPanel: React.FC = () => {
         </div>
       )}
 
-      {/* ── Skeleton loading ──────────────────────────────── */}
+      {/* ── Skeleton loading ────────────────────────── */}
       {loading && (
-        <div className="flex flex-col gap-2 mt-2 animate-fade-in">
+        <div className="flex flex-col gap-1 mt-2 animate-fade-in">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="grid items-center gap-4 px-4 py-3 rounded-md"
-              style={{ gridTemplateColumns: '2.5rem 1fr 5rem 7rem' }}
+              className="grid items-center gap-4 px-4 py-2.5 rounded-md"
+              style={{ gridTemplateColumns: '2.5rem 1fr 4rem 10rem' }}
             >
               <div className="sp-skeleton w-5 h-4 mx-auto rounded" />
               <div className="flex items-center gap-3">
@@ -298,7 +340,10 @@ export const SearchPanel: React.FC = () => {
                 </div>
               </div>
               <div className="sp-skeleton h-3 w-8 ml-auto rounded" />
-              <div className="sp-skeleton h-7 w-16 mx-auto rounded-full" />
+              <div className="flex gap-2 justify-end">
+                <div className="sp-skeleton h-7 w-7 rounded-full" />
+                <div className="sp-skeleton h-7 w-16 rounded-full" />
+              </div>
             </div>
           ))}
         </div>

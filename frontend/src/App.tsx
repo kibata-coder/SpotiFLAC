@@ -5,33 +5,72 @@ import { AudioPlayer } from './components/AudioPlayer';
 import type { SearchResult } from './lib/api';
 
 export interface PlayerContextType {
-  playTrack: (track: SearchResult, streamUrl: string) => void;
+  playTrack: (track: SearchResult, streamUrl: string, queue?: SearchResult[], index?: number) => void;
+  currentTrack: SearchResult | null;
+  isPlaying: boolean;
 }
 
-export const PlayerContext = createContext<PlayerContextType>({ playTrack: () => {} });
+export const PlayerContext = createContext<PlayerContextType>({
+  playTrack: () => {},
+  currentTrack: null,
+  isPlaying: false,
+});
 
 function App() {
   const [currentTab, setCurrentTab] = useState('search');
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   // Audio Player State
   const [currentTrack, setCurrentTrack] = useState<SearchResult | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
+  const [queue, setQueue] = useState<SearchResult[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
 
-  const playTrack = (track: SearchResult, url: string) => {
+  const playTrack = (
+    track: SearchResult,
+    url: string,
+    trackQueue?: SearchResult[],
+    index?: number,
+  ) => {
     if (currentTrack?.id === track.id) {
-      setIsPlaying(!isPlaying);
+      setIsPlaying(p => !p);
       return;
     }
     setCurrentTrack(track);
     setStreamUrl(url);
     setIsPlaying(true);
+    if (trackQueue) {
+      setQueue(trackQueue);
+      setCurrentIndex(index ?? 0);
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentIndex <= 0) return;
+    const idx = currentIndex - 1;
+    const t = queue[idx];
+    if (!t) return;
+    setCurrentTrack(t);
+    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
+    setIsPlaying(true);
+    setCurrentIndex(idx);
+  };
+
+  const handleNext = () => {
+    if (currentIndex >= queue.length - 1) return;
+    const idx = currentIndex + 1;
+    const t = queue[idx];
+    if (!t) return;
+    setCurrentTrack(t);
+    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
+    setIsPlaying(true);
+    setCurrentIndex(idx);
   };
 
   const handleTabChange = (tab: string) => {
     setCurrentTab(tab);
-    setSidebarOpen(false); // close mobile sidebar on nav
+    setSidebarOpen(false);
   };
 
   const renderContent = () => {
@@ -87,10 +126,8 @@ function App() {
     settings: 'linear-gradient(180deg, rgba(40,40,40,0.8) 0%, rgba(18,18,18,0) 100%)',
   };
 
-  const playerHeight = currentTrack ? 80 : 0;
-
   return (
-    <PlayerContext.Provider value={{ playTrack }}>
+    <PlayerContext.Provider value={{ playTrack, currentTrack, isPlaying }}>
       {/* ── Mobile sidebar backdrop ── */}
       {sidebarOpen && (
         <div
@@ -103,7 +140,7 @@ function App() {
       <div
         className="flex flex-row w-screen overflow-hidden"
         style={{
-          height: `calc(100dvh - ${playerHeight}px)`,
+          height: currentTrack ? 'calc(100dvh - 90px)' : '100dvh',
           background: 'var(--sp-bg)',
           padding: '8px',
           gap: '8px',
@@ -199,11 +236,15 @@ function App() {
         </main>
       </div>
 
-      <AudioPlayer 
-        currentTrack={currentTrack} 
-        isPlaying={isPlaying} 
+      <AudioPlayer
+        currentTrack={currentTrack}
+        isPlaying={isPlaying}
         streamUrl={streamUrl}
-        onPlayPause={() => setIsPlaying(!isPlaying)} 
+        onPlayPause={() => setIsPlaying(p => !p)}
+        queue={queue}
+        currentIndex={currentIndex}
+        onPrev={handlePrev}
+        onNext={handleNext}
       />
     </PlayerContext.Provider>
   );
