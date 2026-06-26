@@ -66,65 +66,51 @@ def search():
         return jsonify({'error': str(e)}), 500
 
 
+import requests
+
 def download_audio(video_id):
     if not video_id:
         raise Exception('Missing video_id')
         
-    temp_dir = tempfile.gettempdir()
-    file_id = str(uuid.uuid4())
-    url = f"https://www.youtube.com/watch?v={video_id}"
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     
-    # Robust fallback chain for bypassing YouTube's 429 Too Many Requests datacenter blocks
-    clients = ['IOS', 'ANDROID_MUSIC', 'TV', 'WEB_CREATOR']
-    stream = None
-    yt = None
+    # List of public Cobalt instances to act as a proxy pool
+    cobalt_instances = [
+        "https://cobalt.keller-oliver.de",
+        "https://api.cobalt.tools",
+        "https://co.wuk.sh",
+        "https://cobalt.kheina.com"
+    ]
     
-    for c in clients:
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "url": youtube_url,
+        "isAudioOnly": True,
+        "aFormat": "best"
+    }
+    
+    direct_url = None
+    for instance in cobalt_instances:
         try:
-            yt = YouTube(url, client=c, use_po_token=True)
-            stream = yt.streams.get_audio_only()
-            if stream:
-                print(f"Successfully connected using client: {c}")
-                break
+            print(f"Trying Cobalt instance: {instance}")
+            response = requests.post(f"{instance}/api/json", json=payload, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                if "url" in data:
+                    direct_url = data["url"]
+                    print(f"Successfully got download URL from {instance}")
+                    break
         except Exception as e:
-            print(f"Client {c} failed: {e}")
+            print(f"Failed to use instance {instance}: {e}")
             
-    if not stream:
-        raise Exception('All YouTube clients failed to bypass the 429 block for this track.')
+    if not direct_url:
+        raise Exception("All public proxy instances failed. The datacenter ban could not be bypassed.")
         
-    ext = stream.subtype
-    filename = f"{file_id}.{ext}"
-    
-    # Download the stream to the temporary directory
-    downloaded_filepath = stream.download(output_path=temp_dir, filename=filename)
-    
-    track_title = yt.title or "Unknown Track"
-    artist = yt.author or "Unknown Artist"
-    
-    # Convert to FLAC using ffmpeg via imageio_ffmpeg
-    import imageio_ffmpeg
-    import subprocess
-    
-    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-    flac_filename = f"{file_id}.flac"
-    flac_filepath = os.path.join(temp_dir, flac_filename)
-    
-    # Run ffmpeg to convert the audio file to FLAC
-    # -y overwrites output file if it exists, -i is the input file, and we output to flac_filepath
-    subprocess.run([
-        ffmpeg_exe,
-        '-y',
-        '-i', downloaded_filepath,
-        flac_filepath
-    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    
-    # Optionally remove the original downloaded file to save space
-    try:
-        os.remove(downloaded_filepath)
-    except:
-        pass
-    
-    return flac_filepath, track_title, artist, 'flac'
+    return direct_url
 
 
 @app.route('/api/download', methods=['POST'])
@@ -136,18 +122,10 @@ def download():
         return jsonify({'error': 'Missing spotify_id (videoId)'}), 400
 
     try:
-        expected_filepath, track_title, artist, ext = download_audio(spotify_id)
+        direct_url = download_audio(spotify_id)
         
-        if os.path.exists(expected_filepath):
-            # Send the file to the user
-            return send_file(
-                expected_filepath,
-                as_attachment=True,
-                download_name=f"{track_title} - {artist}.{ext}",
-                mimetype=f'audio/{ext}'
-            )
-        else:
-            return jsonify({'error': 'File conversion failed'}), 500
+        # Return the direct download URL so the frontend can redirect the user to it
+        return jsonify({'download_url': direct_url})
 
     except Exception as e:
         print(f"Error during download: {e}")
@@ -162,17 +140,11 @@ def stream():
         return jsonify({'error': 'Missing spotify_id (videoId)'}), 400
 
     try:
-        expected_filepath, track_title, artist, ext = download_audio(spotify_id)
+        direct_url = download_audio(spotify_id)
         
-        if os.path.exists(expected_filepath):
-            # Send the file without as_attachment so it streams in browser
-            return send_file(
-                expected_filepath,
-                as_attachment=False,
-                mimetype=f'audio/{ext}'
-            )
-        else:
-            return jsonify({'error': 'File conversion failed'}), 500
+        # Redirect the stream player to the direct audio URL
+        from flask import redirect
+        return redirect(direct_url)
 
     except Exception as e:
         print(f"Error during stream: {e}")

@@ -49,22 +49,22 @@ export async function downloadTrackWeb(spotifyId: string, service: string, track
     throw new Error(errorMsg);
   }
 
-  // Convert the binary stream into a browser download
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  
+  // Parse the JSON response to get the direct Cobalt URL
+  const data = await response.json();
+  if (!data.download_url) {
+    throw new Error("No download URL returned from server.");
+  }
+
+  // Redirect the browser to the direct Cobalt download URL
   const link = document.createElement("a");
-  link.href = downloadUrl;
+  link.href = data.download_url;
   
   // Clean up filename to prevent weird browser saving bugs
   const safeTrackName = trackName.replace(/[^a-zA-Z0-9 -]/g, "");
-  link.download = `${safeTrackName}.flac`;
+  link.download = `${safeTrackName}.flac`; // Force download attribute
   
   document.body.appendChild(link);
   link.click();
-  
-  // Memory cleanup
-  window.URL.revokeObjectURL(downloadUrl);
   link.remove();
 }
 
