@@ -133,16 +133,15 @@ export const SearchPanel: React.FC = () => {
       {/* ── Results column header ──────────────────────────── */}
       {results.length > 0 && !loading && (
         <div
-          className="grid gap-1 px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in"
+          className="grid gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in grid-cols-[1fr_auto] sm:grid-cols-[2.5rem_1fr_5rem_9rem]"
           style={{
-            gridTemplateColumns: '2.5rem 1fr 5rem 9rem',
             color: 'var(--sp-subdued)',
             borderColor: 'var(--sp-border)',
           }}
         >
-          <div className="text-center">#</div>
+          <div className="text-center hidden sm:block">#</div>
           <div>Title</div>
-          <div className="text-right">Duration</div>
+          <div className="text-right hidden sm:block">Duration</div>
           <div className="text-center">Actions</div>
         </div>
       )}
@@ -157,14 +156,13 @@ export const SearchPanel: React.FC = () => {
               <div
               key={item.id}
               id={`track-${item.id}`}
-              className="sp-track-row group animate-fade-in"
+              className="sp-track-row group animate-fade-in grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 hover:bg-white/5 rounded-md grid-cols-[1fr_auto] sm:grid-cols-[2.5rem_1fr_5rem_9rem]"
               style={{
-                gridTemplateColumns: '2.5rem 1fr 5rem 9rem',
                 animationDelay: `${Math.min(index * 30, 400)}ms`,
               }}
             >
               {/* Row number / play icon */}
-              <div className="sp-row-num-wrap">
+              <div className="sp-row-num-wrap hidden sm:flex">
                 <span
                   className="sp-row-num"
                   style={{ color: isDownloaded ? 'var(--sp-green)' : 'var(--sp-subdued)' }}
@@ -180,9 +178,9 @@ export const SearchPanel: React.FC = () => {
               </div>
 
               {/* Track info */}
-              <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 overflow-hidden">
                 {item.cover ? (
-                  <img src={item.cover} alt="" className="w-10 h-10 rounded sp-cover flex-shrink-0" />
+                  <img src={item.cover} alt="" className="w-10 h-10 sm:w-10 sm:h-10 rounded sp-cover flex-shrink-0" />
                 ) : (
                   <div
                     className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
@@ -200,22 +198,22 @@ export const SearchPanel: React.FC = () => {
                   </span>
                   <span className="text-xs truncate leading-snug" style={{ color: 'var(--sp-subdued)' }}>
                     {item.artists}
-                    {item.album ? <span style={{ color: 'var(--sp-muted)' }}> · {item.album}</span> : null}
+                    {item.album ? <span className="hidden sm:inline" style={{ color: 'var(--sp-muted)' }}> · {item.album}</span> : null}
                   </span>
                 </div>
               </div>
 
               {/* Duration */}
-              <div className="text-right text-sm tabular-nums" style={{ color: 'var(--sp-subdued)' }}>
+              <div className="text-right text-sm tabular-nums hidden sm:block" style={{ color: 'var(--sp-subdued)' }}>
                 {formatDuration((item as any).duration_ms)}
               </div>
 
               {/* Download action */}
-              <div className="sp-row-actions justify-center gap-2 flex">
+              <div className="sp-row-actions flex items-center justify-end gap-1 sm:gap-2">
                 <button
                   title="Play Preview / Stream"
                   onClick={() => playTrack(item, `https://www.youtube.com/watch?v=${item.id}`)}
-                  className="sp-btn-outline flex items-center justify-center rounded-full w-8 h-8 p-0 border-zinc-600 hover:border-white text-zinc-300 hover:text-white"
+                  className="sp-btn-outline flex items-center justify-center rounded-full w-8 h-8 sm:w-8 sm:h-8 p-0 border-zinc-600 hover:border-white text-zinc-300 hover:text-white"
                 >
                   <Play className="w-4 h-4 ml-0.5 fill-current" />
                 </button>
