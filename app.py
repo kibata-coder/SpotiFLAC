@@ -10,6 +10,7 @@ import urllib.request
 import random
 import time
 from flask_cors import CORS
+import re
 
 COOKIES_PATH = "/app/cookies.txt"
 
@@ -261,7 +262,8 @@ def get_lyrics():
         
         try:
             track_info = watch.get('tracks', [{}])[0]
-            title = track_info.get('title', '')
+            raw_title = track_info.get('title', '')
+            title = re.sub(r'[\(\[].*?[\)\]]', '', raw_title).strip()
             artists = track_info.get('artists', [{'name': ''}])[0].get('name', '')
             if title and artists:
                 res = requests.get("https://lrclib.net/api/get", params={"track_name": title, "artist_name": artists}, headers={"User-Agent": "SpotiFLAC"}, timeout=5)

@@ -148,8 +148,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }
     const lines = lyricsText.split('\n');
     const parsed = [];
-    const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+    const timeRegex = /\[(\d{1,2}):(\d{2})\.(\d{2,3})\]/;
     for (const line of lines) {
+      if (/^\[[a-zA-Z]+:.*\]/.test(line)) continue;
+      
       const match = timeRegex.exec(line);
       if (match) {
         const min = parseInt(match[1], 10);
