@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
 import { AudioPlayer } from './components/AudioPlayer';
 import type { SearchResult } from './lib/api';
+import { getStreamUrl } from './lib/api';
 
 export interface PlayerContextType {
   playTrack: (track: SearchResult, streamUrl: string, queue?: SearchResult[], index?: number) => void;
@@ -52,7 +53,7 @@ function App() {
     const t = queue[idx];
     if (!t) return;
     setCurrentTrack(t);
-    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
+    setStreamUrl(getStreamUrl(t.id));
     setIsPlaying(true);
     setCurrentIndex(idx);
   };
@@ -63,7 +64,7 @@ function App() {
     const t = queue[idx];
     if (!t) return;
     setCurrentTrack(t);
-    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
+    setStreamUrl(getStreamUrl(t.id));
     setIsPlaying(true);
     setCurrentIndex(idx);
   };

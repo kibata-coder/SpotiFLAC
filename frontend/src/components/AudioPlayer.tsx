@@ -138,8 +138,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   if (!currentTrack) return null;
 
+  const lyricsLines = lyricsText ? lyricsText.split('\n') : [];
+  const activeLineIndex = duration > 0 ? Math.min(Math.floor((progress / duration) * lyricsLines.length), lyricsLines.length - 1) : 0;
+
+  useEffect(() => {
+    if (showLyrics && activeLineIndex >= 0) {
+      const activeEl = document.getElementById(`lyric-line-${activeLineIndex}`);
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [activeLineIndex, showLyrics]);
+
   /* ──────────────── LYRICS OVERLAY ──────────────── */
-  const LyricsPanel = () => (
+  const lyricsPanelContent = (
     <div className="sp-lyrics-overlay">
       <div className="sp-lyrics-header">
         <button className="sp-lyrics-close" onClick={() => setShowLyrics(false)}>
@@ -163,8 +175,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
              <p className="text-white/60 text-sm">Fetching lyrics...</p>
           </div>
         ) : lyricsText ? (
-          <div className="mt-8 text-center text-lg text-white/90 whitespace-pre-wrap leading-relaxed max-w-2xl mx-auto px-4 pb-20">
-             {lyricsText}
+          <div className="mt-8 text-center text-lg whitespace-pre-wrap leading-relaxed max-w-2xl mx-auto px-4 pb-40">
+             {lyricsLines.map((line, idx) => (
+                <div
+                  key={idx}
+                  id={`lyric-line-${idx}`}
+                  className={`transition-all duration-500 min-h-[1.75rem] mb-2 ${idx === activeLineIndex ? 'text-white text-2xl scale-105 font-bold drop-shadow-lg' : 'text-white/40'}`}
+                >
+                  {line}
+                </div>
+             ))}
           </div>
         ) : (
           <div className="sp-lyrics-placeholder-box">
@@ -181,7 +201,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   return (
     <>
       {/* Lyrics full-screen overlay */}
-      {showLyrics && <LyricsPanel />}
+      {showLyrics && lyricsPanelContent}
 
       {/* ── Player bar ────────────────────────────────────────── */}
       <div className="sp-player-bar">
