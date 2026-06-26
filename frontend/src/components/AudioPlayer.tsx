@@ -18,8 +18,8 @@ interface AudioPlayerProps {
   streamUrl: string | null;
   queue?: SearchResult[];
   currentIndex?: number;
-  onPrev?: () => void;
-  onNext?: () => void;
+  onPrev?: (forceWrap?: boolean) => void;
+  onNext?: (forceWrap?: boolean) => void;
 }
 
 type RepeatMode = 'none' | 'all' | 'one';
@@ -49,6 +49,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [downloadingFlac, setDownloadingFlac] = useState(false);
   const [downloadedFlac, setDownloadedFlac] = useState(false);
   const [lyricsText, setLyricsText] = useState<string | null>(null);
+  const [lyricsData, setLyricsData] = useState<{ time: number, text: string }[] | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
@@ -131,13 +132,54 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       playerRef.current?.seekTo(0);
       return;
     }
-    if (hasNext) onNext?.();
-    else if (repeatMode === 'all' && queue.length > 0) onPrev?.(); // wrap
-    else onPlayPause();
+    if (currentIndex < queue.length - 1) {
+      onNext?.();
+    } else if (repeatMode === 'all' && queue.length > 0) {
+      onNext?.(true); // wrap
+    } else {
+      onPlayPause();
+    }
   };
 
-  const lyricsLines = lyricsText ? lyricsText.split('\n') : [];
-  const activeLineIndex = duration > 0 ? Math.min(Math.floor((progress / duration) * lyricsLines.length), lyricsLines.length - 1) : 0;
+  useEffect(() => {
+    if (!lyricsText) {
+      setLyricsData(null);
+      return;
+    }
+    const lines = lyricsText.split('\n');
+    const parsed = [];
+    const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+    for (const line of lines) {
+      const match = timeRegex.exec(line);
+      if (match) {
+        const min = parseInt(match[1], 10);
+        const sec = parseInt(match[2], 10);
+        const ms = parseInt(match[3], 10);
+        const time = min * 60 + sec + ms / (match[3].length === 2 ? 100 : 1000);
+        const text = line.replace(timeRegex, '').trim();
+        if (text) parsed.push({ time, text });
+      } else if (line.trim()) {
+        parsed.push({ time: -1, text: line.trim() });
+      }
+    }
+    setLyricsData(parsed);
+  }, [lyricsText]);
+
+  const isSynced = lyricsData?.some(d => d.time >= 0) ?? false;
+  
+  let activeLineIndex = 0;
+  if (lyricsData && lyricsData.length > 0) {
+    if (isSynced) {
+      for (let i = lyricsData.length - 1; i >= 0; i--) {
+        if (lyricsData[i].time <= progress) {
+          activeLineIndex = i;
+          break;
+        }
+      }
+    } else {
+      activeLineIndex = duration > 0 ? Math.min(Math.floor((progress / duration) * lyricsData.length), lyricsData.length - 1) : 0;
+    }
+  }
 
   useEffect(() => {
     if (showLyrics && activeLineIndex >= 0) {
@@ -174,15 +216,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
              <Loader2 className="w-8 h-8 mb-3 opacity-50 animate-spin" />
              <p className="text-white/60 text-sm">Fetching lyrics...</p>
           </div>
-        ) : lyricsText ? (
+        ) : lyricsData ? (
           <div className="mt-8 text-center text-lg whitespace-pre-wrap leading-relaxed max-w-2xl mx-auto px-4 pb-40">
-             {lyricsLines.map((line, idx) => (
+             {lyricsData.map((line, idx) => (
                 <div
                   key={idx}
                   id={`lyric-line-${idx}`}
                   className={`transition-all duration-500 min-h-[1.75rem] mb-2 ${idx === activeLineIndex ? 'text-white text-2xl scale-105 font-bold drop-shadow-lg' : 'text-white/40'}`}
                 >
-                  {line}
+                  {line.text}
                 </div>
              ))}
           </div>

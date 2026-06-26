@@ -47,24 +47,36 @@ function App() {
     }
   };
 
-  const handlePrev = () => {
-    if (currentIndex <= 0) return;
-    const idx = currentIndex - 1;
+  const handlePrev = (forceWrap?: boolean) => {
+    let idx = currentIndex - 1;
+    if (idx < 0) {
+      if (forceWrap && queue.length > 0) {
+        idx = queue.length - 1;
+      } else {
+        return;
+      }
+    }
     const t = queue[idx];
     if (!t) return;
     setCurrentTrack(t);
-    setStreamUrl(getStreamUrl(t.id));
+    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
     setIsPlaying(true);
     setCurrentIndex(idx);
   };
 
-  const handleNext = () => {
-    if (currentIndex >= queue.length - 1) return;
-    const idx = currentIndex + 1;
+  const handleNext = (forceWrap?: boolean) => {
+    let idx = currentIndex + 1;
+    if (idx >= queue.length) {
+      if (forceWrap && queue.length > 0) {
+        idx = 0;
+      } else {
+        return;
+      }
+    }
     const t = queue[idx];
     if (!t) return;
     setCurrentTrack(t);
-    setStreamUrl(getStreamUrl(t.id));
+    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
     setIsPlaying(true);
     setCurrentIndex(idx);
   };

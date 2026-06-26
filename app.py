@@ -378,12 +378,26 @@ def get_lyrics():
     
     try:
         watch = ytmusic.get_watch_playlist(videoId=spotify_id)
+        
+        try:
+            track_info = watch.get('tracks', [{}])[0]
+            title = track_info.get('title', '')
+            artists = track_info.get('artists', [{'name': ''}])[0].get('name', '')
+            if title and artists:
+                res = requests.get("https://lrclib.net/api/get", params={"track_name": title, "artist_name": artists}, headers={"User-Agent": "SpotiFLAC"}, timeout=5)
+                if res.status_code == 200:
+                    data = res.json()
+                    if data.get("syncedLyrics"):
+                        return jsonify({"lyrics": data["syncedLyrics"], "synced": True})
+        except Exception as e:
+            print(f"LRCLIB error: {e}")
+
         lyrics_id = watch.get("lyrics")
         if not lyrics_id:
             return jsonify({"error": "Lyrics not available for this track"}), 404
             
         lyrics_data = ytmusic.get_lyrics(lyrics_id)
-        return jsonify({"lyrics": lyrics_data.get("lyrics", "")})
+        return jsonify({"lyrics": lyrics_data.get("lyrics", ""), "synced": False})
     except Exception as e:
         print(f"Lyrics error: {e}")
         return jsonify({"error": str(e)}), 500
