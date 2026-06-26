@@ -70,6 +70,8 @@ import subprocess
 import requests
 import json
 import urllib.request
+import random
+import time
 
 # Updated pool of public Invidious API instances (community-run YouTube frontends)
 INVIDIOUS_INSTANCES = [
@@ -86,6 +88,90 @@ INVIDIOUS_INSTANCES = [
     "https://invidious.lunar.icu",
     "https://invidious.tiekoetter.com",
 ]
+
+# Rotating User-Agent pool to reduce bot-detection fingerprinting
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+]
+
+CHUNK_SIZE = 512 * 1024  # 512 KB per range request
+
+
+def _chunked_range_download(url: str, dest_path: str) -> bool:
+    """Download a file via sequential HTTP Range requests (chunked).
+
+    Fetches CHUNK_SIZE bytes at a time with a random User-Agent and a short
+    random pause between chunks to mimic a browser's adaptive streaming
+    behaviour and reduce the chance of bot-detection triggers.
+
+    Returns True if at least one byte was written successfully.
+    """
+    session = requests.Session()
+    session.headers.update({"User-Agent": random.choice(_USER_AGENTS)})
+
+    # First, probe the total content length via a HEAD request
+    try:
+        head = session.head(url, timeout=15, allow_redirects=True)
+        total_size = int(head.headers.get("Content-Length", 0))
+    except Exception as e:
+        print(f"HEAD probe failed, will download without range knowledge: {e}")
+        total_size = 0
+
+    offset = 0
+    bytes_written = 0
+
+    with open(dest_path, "wb") as f:
+        while True:
+            end = offset + CHUNK_SIZE - 1
+            range_header = f"bytes={offset}-{end}" if total_size else f"bytes={offset}-{offset + CHUNK_SIZE - 1}"
+            headers = {
+                "User-Agent": random.choice(_USER_AGENTS),
+                "Range": range_header,
+                "Accept": "*/*",
+                "Referer": "https://www.youtube.com/",
+            }
+            try:
+                resp = session.get(url, headers=headers, timeout=30, stream=True)
+                if resp.status_code not in (200, 206):
+                    # Server doesn't support range requests or hit an error
+                    if offset == 0 and resp.status_code == 200:
+                        # Fall back to plain streaming for this chunk
+                        for data in resp.iter_content(CHUNK_SIZE):
+                            f.write(data)
+                            bytes_written += len(data)
+                    print(f"Range request got HTTP {resp.status_code} at offset {offset}, stopping.")
+                    break
+
+                chunk_data = resp.content
+                if not chunk_data:
+                    break  # No more data
+
+                f.write(chunk_data)
+                bytes_written += len(chunk_data)
+                offset += len(chunk_data)
+
+                print(f"  Downloaded {bytes_written // 1024} KB so far...")
+
+                # Stop conditions
+                if total_size and offset >= total_size:
+                    break
+                if len(chunk_data) < CHUNK_SIZE:
+                    # Server sent less than requested — we've hit the end
+                    break
+
+            except Exception as e:
+                print(f"Chunk download error at offset {offset}: {e}")
+                break
+
+            # Random human-like pause between chunks (0.1 – 0.6 seconds)
+            time.sleep(random.uniform(0.1, 0.6))
+
+    return bytes_written > 0
+
 
 def download_audio(video_id):
     if not video_id:
@@ -182,15 +268,13 @@ def download_audio(video_id):
 
         if direct_audio_url:
             try:
-                with requests.get(direct_audio_url, stream=True, timeout=90, headers={"User-Agent": "Mozilla/5.0"}) as dl:
-                    dl.raise_for_status()
-                    with open(raw_filepath, 'wb') as f:
-                        for chunk in dl.iter_content(chunk_size=65536):
-                            f.write(chunk)
-                downloaded_ok = True
-                print("Invidious proxy download succeeded.")
+                downloaded_ok = _chunked_range_download(direct_audio_url, raw_filepath)
+                if downloaded_ok:
+                    print("Invidious proxy chunked download succeeded.")
+                else:
+                    print("Invidious proxy chunked download returned no data.")
             except Exception as e:
-                print(f"Invidious proxy download failed: {e}")
+                print(f"Invidious proxy chunked download failed: {e}")
 
     if not downloaded_ok or not os.path.exists(raw_filepath):
         raise Exception("All download methods failed. Please try again later.")
