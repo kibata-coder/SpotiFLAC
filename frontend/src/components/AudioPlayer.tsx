@@ -9,7 +9,7 @@ import {
   ChevronDown, X,
 } from 'lucide-react';
 import type { SearchResult } from '../lib/api';
-import { downloadTrackWeb } from '../lib/api';
+import { downloadTrackWeb, getLyrics } from '../lib/api';
 
 interface AudioPlayerProps {
   currentTrack: SearchResult | null;
@@ -48,6 +48,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [dragValue, setDragValue] = useState(0);
   const [downloadingFlac, setDownloadingFlac] = useState(false);
   const [downloadedFlac, setDownloadedFlac] = useState(false);
+  const [lyricsText, setLyricsText] = useState<string | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
 
   // Reset state on track change
@@ -56,7 +58,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setDuration(0);
     setIsLiked(false);
     setDownloadedFlac(false);
+    setLyricsText(null);
   }, [currentTrack?.id]);
+
+  // Fetch lyrics when the panel is opened
+  useEffect(() => {
+    if (currentTrack && showLyrics && lyricsText === null && !lyricsLoading) {
+      setLyricsLoading(true);
+      getLyrics(currentTrack.id)
+        .then(setLyricsText)
+        .catch(() => setLyricsText('')) // empty string means unavailable
+        .finally(() => setLyricsLoading(false));
+    }
+  }, [currentTrack?.id, showLyrics, lyricsText, lyricsLoading]);
 
   const handleSeekClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || !duration) return;
@@ -143,13 +157,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         </div>
         <p className="sp-lyrics-track-name">{currentTrack.name}</p>
         <p className="sp-lyrics-artist">{currentTrack.artists}</p>
-        <div className="sp-lyrics-placeholder-box">
-          <Mic2 className="w-8 h-8 mb-3 opacity-30" />
-          <p className="text-white/60 text-sm text-center">
-            Lyrics aren't available for this track yet.<br />
-            <span className="text-white/30 text-xs">Coming soon via synced lyrics</span>
-          </p>
-        </div>
+        {lyricsLoading ? (
+          <div className="sp-lyrics-placeholder-box">
+             <Loader2 className="w-8 h-8 mb-3 opacity-50 animate-spin" />
+             <p className="text-white/60 text-sm">Fetching lyrics...</p>
+          </div>
+        ) : lyricsText ? (
+          <div className="mt-8 text-center text-lg text-white/90 whitespace-pre-wrap leading-relaxed max-w-2xl mx-auto px-4 pb-20">
+             {lyricsText}
+          </div>
+        ) : (
+          <div className="sp-lyrics-placeholder-box">
+            <Mic2 className="w-8 h-8 mb-3 opacity-30" />
+            <p className="text-white/60 text-sm text-center">
+              Lyrics aren't available for this track.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

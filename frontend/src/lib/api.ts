@@ -65,3 +65,19 @@ export async function downloadTrackWeb(spotifyId: string, trackName: string): Pr
 export function getStreamUrl(spotifyId: string): string {
   return `${API_BASE_URL}/api/stream?spotify_id=${encodeURIComponent(spotifyId)}`;
 }
+
+export async function getLyrics(spotifyId: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/api/lyrics?spotify_id=${encodeURIComponent(spotifyId)}`);
+  
+  if (!response.ok) {
+    let errorMsg = "Lyrics not available.";
+    try {
+      const errorData = await response.json();
+      if (errorData.error) errorMsg = errorData.error;
+    } catch (e) {}
+    throw new Error(errorMsg);
+  }
+  
+  const data = await response.json();
+  return data.lyrics || "";
+}

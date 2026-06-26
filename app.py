@@ -368,6 +368,27 @@ def cookies_upload():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/lyrics", methods=["GET"])
+def get_lyrics():
+    spotify_id = request.args.get("spotify_id")
+    if not spotify_id:
+        return jsonify({"error": "Missing spotify_id"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    
+    try:
+        watch = ytmusic.get_watch_playlist(videoId=spotify_id)
+        lyrics_id = watch.get("lyrics")
+        if not lyrics_id:
+            return jsonify({"error": "Lyrics not available for this track"}), 404
+            
+        lyrics_data = ytmusic.get_lyrics(lyrics_id)
+        return jsonify({"lyrics": lyrics_data.get("lyrics", "")})
+    except Exception as e:
+        print(f"Lyrics error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
