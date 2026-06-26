@@ -86,12 +86,35 @@ def download_audio(video_id):
     filename = f"{file_id}.{ext}"
     
     # Download the stream to the temporary directory
-    expected_filepath = stream.download(output_path=temp_dir, filename=filename)
+    downloaded_filepath = stream.download(output_path=temp_dir, filename=filename)
     
     track_title = yt.title or "Unknown Track"
     artist = yt.author or "Unknown Artist"
     
-    return expected_filepath, track_title, artist, ext
+    # Convert to FLAC using ffmpeg via imageio_ffmpeg
+    import imageio_ffmpeg
+    import subprocess
+    
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    flac_filename = f"{file_id}.flac"
+    flac_filepath = os.path.join(temp_dir, flac_filename)
+    
+    # Run ffmpeg to convert the audio file to FLAC
+    # -y overwrites output file if it exists, -i is the input file, and we output to flac_filepath
+    subprocess.run([
+        ffmpeg_exe,
+        '-y',
+        '-i', downloaded_filepath,
+        flac_filepath
+    ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    # Optionally remove the original downloaded file to save space
+    try:
+        os.remove(downloaded_filepath)
+    except:
+        pass
+    
+    return flac_filepath, track_title, artist, 'flac'
 
 
 @app.route('/api/download', methods=['POST'])
