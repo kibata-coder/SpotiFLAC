@@ -120,53 +120,75 @@ def _get_metadata(video_id: str):
 
 def download_audio(video_id: str):
     """
-    Download audio via Invidious (direct URL) and convert to FLAC with ffmpeg.
+    Download audio via freyr (Apple Music source) then convert to FLAC with ffmpeg.
+    Pipeline: iTunes search → Apple Music URL → freyr (.m4a) → ffmpeg (.flac)
     Returns (filepath, track_title, artist, extension)
     """
     temp_dir = tempfile.gettempdir()
     track_title, artist = _get_metadata(video_id)
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
+    print(f"\n[{video_id}] Searching iTunes for: {track_title} - {artist}")
+
+    # ── Step 1: Find Apple Music URL via iTunes public search API ─────────────
+    apple_music_url = None
+    try:
+        search_query = f"{track_title} {artist}"
+        itunes_resp = requests.get(
+            "https://itunes.apple.com/search",
+            params={"term": search_query, "media": "music", "entity": "song", "limit": "1"},
+            timeout=10,
+        )
+        results = itunes_resp.json().get("results", [])
+        if results:
+            apple_music_url = results[0].get("trackViewUrl")
+            print(f"  ✅ Found Apple Music URL: {apple_music_url}")
+    except Exception as e:
+        print(f"  iTunes search failed: {e}")
+
+    if not apple_music_url:
+        raise Exception("Could not find track on Apple Music via iTunes search.")
+
+    # ── Step 2: Run freyr to download the .m4a ────────────────────────────────
+    unique_dir = os.path.join(temp_dir, str(uuid.uuid4()))
+    os.makedirs(unique_dir, exist_ok=True)
+
+    print(f"  Running freyr on: {apple_music_url}")
+    try:
+        subprocess.run(
+            ["freyr", "get", apple_music_url, "-d", unique_dir],
+            check=True,
+            timeout=300,  # 5 minute timeout
+        )
+    except FileNotFoundError:
+        raise Exception("freyr not found. Ensure it is installed via 'npm install -g freyr'.")
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"freyr download failed: {e}")
+    except subprocess.TimeoutExpired:
+        raise Exception("freyr download timed out after 5 minutes.")
+
+    # ── Step 3: Find the downloaded .m4a file ────────────────────────────────
+    m4a_file = None
+    for root, _, files in os.walk(unique_dir):
+        for f in files:
+            if f.endswith(".m4a"):
+                m4a_file = os.path.join(root, f)
+                break
+        if m4a_file:
+            break
+
+    if not m4a_file:
+        raise Exception("freyr completed but no .m4a file found in output directory.")
+
+    print(f"  ✅ freyr downloaded: {m4a_file}")
+
+    # ── Step 4: Convert .m4a → .flac with ffmpeg ─────────────────────────────
     file_id = str(uuid.uuid4())
     flac_filepath = os.path.join(temp_dir, f"{file_id}.flac")
 
-    # ── Step 1: Get best audio URL from Invidious pool ────────────────────────
-    audio_url = None
-    for instance in INVIDIOUS_INSTANCES:
-        try:
-            api_url = f"{instance}/api/v1/videos/{video_id}?fields=adaptiveFormats"
-            resp = requests.get(
-                api_url, timeout=10,
-                headers={"User-Agent": random.choice(_USER_AGENTS)},
-            )
-            if resp.status_code != 200:
-                continue
-            best, best_br = None, 0
-            for fmt in resp.json().get("adaptiveFormats", []):
-                if fmt.get("type", "").startswith("audio/") and fmt.get("url"):
-                    br = int(fmt.get("bitrate", 0))
-                    if br > best_br:
-                        best_br, best = br, fmt
-            if best:
-                audio_url = best["url"]
-                print(f"  ✅ Invidious audio URL from {instance} @ {best_br} bps")
-                break
-        except Exception as e:
-            print(f"  Invidious {instance}: {e}, skipping")
-
-    if not audio_url:
-        raise Exception("All Invidious instances failed to return an audio URL.")
-
-    # ── Step 2: Pipe URL through ffmpeg → FLAC ────────────────────────────────
-    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
     try:
         subprocess.run(
-            [
-                ffmpeg_exe, "-y",
-                "-headers", f"User-Agent: {random.choice(_USER_AGENTS)}\r\n",
-                "-i", audio_url,
-                "-c:a", "flac",
-                "-compression_level", "8",
-                flac_filepath,
-            ],
+            [ffmpeg_exe, "-y", "-i", m4a_file, "-c:a", "flac", "-compression_level", "8", flac_filepath],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -174,9 +196,17 @@ def download_audio(video_id: str):
     except subprocess.CalledProcessError as e:
         raise Exception(f"ffmpeg FLAC conversion failed: {e}")
 
+    # Clean up the m4a temp dir
+    try:
+        import shutil
+        shutil.rmtree(unique_dir, ignore_errors=True)
+    except Exception:
+        pass
+
     if not os.path.exists(flac_filepath):
         raise Exception("FLAC file not found after conversion.")
 
+    print(f"  ✅ FLAC ready: {flac_filepath}")
     return flac_filepath, track_title, artist, "flac"
 
 
