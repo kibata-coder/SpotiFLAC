@@ -67,99 +67,118 @@ def _get_metadata(video_id: str):
         return "Unknown Track", "Unknown Artist"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Core downloader: yt_dlp (Python lib) → raw audio → ffmpeg → FLAC
+# Core downloader: freyr → .m4a → ffmpeg → .flac
 # ─────────────────────────────────────────────────────────────────────────────
 def download_audio(video_id: str, job_id: str = None):
     """
-    Download best audio with yt_dlp then convert to FLAC with imageio_ffmpeg.
-    Progress is reported to job_id if provided.
+    Pipeline:
+      1. iTunes search API  → Apple Music URL  (no API key needed)
+      2. freyr get <url>    → downloads .m4a   (installed globally in Docker)
+      3. ffmpeg             → converts to .flac (via imageio_ffmpeg)
     Returns (flac_filepath, track_title, artist)
     """
-    temp_dir = tempfile.gettempdir()
-    track_title, artist = _get_metadata(video_id)
-    file_id = str(uuid.uuid4())
-    raw_path  = os.path.join(temp_dir, f"{file_id}.raw")
-    flac_path = os.path.join(temp_dir, f"{file_id}.flac")
-    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-
-    print(f"\n[{video_id}] Downloading: {track_title} — {artist}")
-
-    def _progress_hook(d):
-        if not job_id:
-            return
-        status = d.get("status")
-        if status == "downloading":
-            total   = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
-            current = d.get("downloaded_bytes", 0)
-            # Scale download to 0-70% of total progress
-            pct = int((current / total) * 70) if total else 5
-            _update_job(job_id, stage="Downloading audio…", pct=max(5, pct))
-        elif status == "finished":
-            _update_job(job_id, stage="Converting to FLAC…", pct=75)
-
-    if job_id:
-        _update_job(job_id, stage="Connecting…", pct=2)
-
-    # ── Step 1: Download raw audio via yt_dlp ─────────────────────────────────
-    ydl_opts = {
-        "format":         "bestaudio/best",
-        "outtmpl":        os.path.join(temp_dir, f"{file_id}.%(ext)s"),
-        "quiet":          True,
-        "no_warnings":    True,
-        "progress_hooks": [_progress_hook],
-        # Pass cookies.txt if it exists — hugely helps with bot detection
-        **({"cookiefile": COOKIES_PATH} if os.path.exists(COOKIES_PATH) else {}),
-    }
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(youtube_url, download=True)
-            downloaded = ydl.prepare_filename(info)
-
-        # yt_dlp writes the real extension — find the actual file
-        if not os.path.exists(downloaded):
-            for ext in (".webm", ".m4a", ".opus", ".ogg", ".mp4"):
-                candidate = os.path.splitext(downloaded)[0] + ext
-                if os.path.exists(candidate):
-                    downloaded = candidate
-                    break
-
-        if not os.path.exists(downloaded):
-            raise Exception("yt_dlp finished but could not locate output file.")
-
-        os.rename(downloaded, raw_path)
-        print(f"  ✅ yt_dlp downloaded raw audio → {raw_path}")
-
-    except Exception as e:
-        if job_id:
-            _update_job(job_id, done=True, error=str(e))
-        raise Exception(f"yt_dlp failed: {e}")
-
-    # ── Step 2: ffmpeg raw → FLAC ─────────────────────────────────────────────
-    if job_id:
-        _update_job(job_id, stage="Converting to FLAC…", pct=78)
-
+    temp_dir   = tempfile.gettempdir()
     ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    track_title, artist = _get_metadata(video_id)
+
+    # Strip junk from title so iTunes search is accurate
+    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', track_title).strip()
+    print(f"\n[{video_id}] freyr pipeline: {clean_title} — {artist}")
+
+    # ── Step 1: Find Apple Music URL via iTunes public search API ─────────────
+    if job_id:
+        _update_job(job_id, stage="Searching Apple Music…", pct=5)
+
+    apple_music_url = None
+    try:
+        resp = requests.get(
+            "https://itunes.apple.com/search",
+            params={"term": f"{clean_title} {artist}", "media": "music", "entity": "song", "limit": "1"},
+            timeout=10,
+        )
+        results = resp.json().get("results", [])
+        if results:
+            apple_music_url = results[0].get("trackViewUrl")
+            print(f"  ✅ Apple Music URL: {apple_music_url}")
+    except Exception as e:
+        print(f"  iTunes search error: {e}")
+
+    if not apple_music_url:
+        err = f"Could not find '{clean_title}' on Apple Music via iTunes search."
+        if job_id:
+            _update_job(job_id, done=True, error=err, stage="Failed")
+        raise Exception(err)
+
+    # ── Step 2: freyr downloads the .m4a ──────────────────────────────────────
+    if job_id:
+        _update_job(job_id, stage="freyr downloading…", pct=15)
+
+    unique_dir = os.path.join(temp_dir, str(uuid.uuid4()))
+    os.makedirs(unique_dir, exist_ok=True)
+
+    print(f"  Running: freyr get {apple_music_url}")
     try:
         result = subprocess.run(
-            [ffmpeg_exe, "-y", "-i", raw_path, "-c:a", "flac", "-compression_level", "5", flac_path],
+            ["freyr", "get", apple_music_url, "-d", unique_dir],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=300,
         )
         if result.returncode != 0:
-            err = result.stderr.decode(errors="ignore")[-500:]
-            raise Exception(f"ffmpeg error: {err}")
+            err_out = result.stderr.decode(errors="ignore")[-400:]
+            raise Exception(f"freyr exited {result.returncode}: {err_out}")
+    except FileNotFoundError:
+        err = "freyr not found on server. Check that 'npm install -g freyr' ran during Docker build."
+        if job_id:
+            _update_job(job_id, done=True, error=err, stage="Failed")
+        raise Exception(err)
+    except subprocess.TimeoutExpired:
+        err = "freyr timed out after 5 minutes."
+        if job_id:
+            _update_job(job_id, done=True, error=err, stage="Failed")
+        raise Exception(err)
+
+    # ── Step 3: Locate the .m4a freyr produced ────────────────────────────────
+    m4a_file = None
+    for root, _, files in os.walk(unique_dir):
+        for f in files:
+            if f.endswith(".m4a"):
+                m4a_file = os.path.join(root, f)
+                break
+        if m4a_file:
+            break
+
+    if not m4a_file:
+        out = result.stdout.decode(errors="ignore")[-600:]
+        err = f"freyr ran but no .m4a found in output dir.\nfreyr stdout: {out}"
+        if job_id:
+            _update_job(job_id, done=True, error=err, stage="Failed")
+        raise Exception(err)
+
+    print(f"  ✅ freyr produced: {m4a_file}")
+
+    # ── Step 4: ffmpeg .m4a → .flac ───────────────────────────────────────────
+    if job_id:
+        _update_job(job_id, stage="Converting to FLAC…", pct=82)
+
+    file_id   = str(uuid.uuid4())
+    flac_path = os.path.join(temp_dir, f"{file_id}.flac")
+
+    try:
+        conv = subprocess.run(
+            [ffmpeg_exe, "-y", "-i", m4a_file, "-c:a", "flac", "-compression_level", "5", flac_path],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        if conv.returncode != 0:
+            raise Exception(conv.stderr.decode(errors="ignore")[-300:])
     finally:
-        try:
-            os.remove(raw_path)
-        except Exception:
-            pass
+        shutil.rmtree(unique_dir, ignore_errors=True)
 
     if not os.path.exists(flac_path):
-        raise Exception("FLAC file not found after conversion.")
+        raise Exception("FLAC file not found after ffmpeg conversion.")
 
     safe_name = re.sub(r'[\\/*?:"<>|]', "", f"{track_title} - {artist}")
-    print(f"  ✅ FLAC ready → {flac_path}")
+    print(f"  ✅ FLAC ready: {flac_path}")
 
     if job_id:
         _update_job(job_id, stage="Ready!", pct=100, done=True,
@@ -167,9 +186,11 @@ def download_audio(video_id: str, job_id: str = None):
 
     return flac_path, track_title, artist
 
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────────────────────────────────────
+
 @app.route("/")
 def index():
     return render_template("index.html")
