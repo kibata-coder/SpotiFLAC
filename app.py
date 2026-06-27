@@ -118,48 +118,67 @@ def _get_metadata(video_id: str):
         return "Unknown Track", "Unknown Artist"
 
 
-import yt_dlp
-
 def download_audio(video_id: str):
     """
-    Download audio for a YouTube video ID using yt-dlp native Python library.
-    Downloads best audio and converts to FLAC using ffmpeg.
+    Download audio via Invidious (direct URL) and convert to FLAC with ffmpeg.
     Returns (filepath, track_title, artist, extension)
     """
     temp_dir = tempfile.gettempdir()
     track_title, artist = _get_metadata(video_id)
     file_id = str(uuid.uuid4())
-    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     flac_filepath = os.path.join(temp_dir, f"{file_id}.flac")
 
-    print(f"\n[{video_id}] Downloading with yt-dlp and converting to FLAC...")
+    # ── Step 1: Get best audio URL from Invidious pool ────────────────────────
+    audio_url = None
+    for instance in INVIDIOUS_INSTANCES:
+        try:
+            api_url = f"{instance}/api/v1/videos/{video_id}?fields=adaptiveFormats"
+            resp = requests.get(
+                api_url, timeout=10,
+                headers={"User-Agent": random.choice(_USER_AGENTS)},
+            )
+            if resp.status_code != 200:
+                continue
+            best, best_br = None, 0
+            for fmt in resp.json().get("adaptiveFormats", []):
+                if fmt.get("type", "").startswith("audio/") and fmt.get("url"):
+                    br = int(fmt.get("bitrate", 0))
+                    if br > best_br:
+                        best_br, best = br, fmt
+            if best:
+                audio_url = best["url"]
+                print(f"  ✅ Invidious audio URL from {instance} @ {best_br} bps")
+                break
+        except Exception as e:
+            print(f"  Invidious {instance}: {e}, skipping")
+
+    if not audio_url:
+        raise Exception("All Invidious instances failed to return an audio URL.")
+
+    # ── Step 2: Pipe URL through ffmpeg → FLAC ────────────────────────────────
+    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
     try:
-        import imageio_ffmpeg
-        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        subprocess.run(
+            [
+                ffmpeg_exe, "-y",
+                "-headers", f"User-Agent: {random.choice(_USER_AGENTS)}\r\n",
+                "-i", audio_url,
+                "-c:a", "flac",
+                "-compression_level", "8",
+                flac_filepath,
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as e:
+        raise Exception(f"ffmpeg FLAC conversion failed: {e}")
 
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'outtmpl': os.path.join(temp_dir, f"{file_id}.%(ext)s"),
-            'quiet': True,
-            'no_warnings': True,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'flac',
-                'preferredquality': '0',  # lossless
-            }],
-            'ffmpeg_location': os.path.dirname(ffmpeg_exe),
-        }
+    if not os.path.exists(flac_filepath):
+        raise Exception("FLAC file not found after conversion.")
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([youtube_url])
+    return flac_filepath, track_title, artist, "flac"
 
-        if not os.path.exists(flac_filepath):
-            raise Exception("FLAC conversion completed but output file not found.")
-
-        return flac_filepath, track_title, artist, "flac"
-
-    except Exception as e:
-        raise Exception(f"yt-dlp FLAC conversion failed: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
