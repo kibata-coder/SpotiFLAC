@@ -118,37 +118,38 @@ def _get_metadata(video_id: str):
         return "Unknown Track", "Unknown Artist"
 
 
+import yt_dlp
+
 def download_audio(video_id: str):
     """
-    Download audio for a YouTube video ID using freyr-js.
+    Download audio for a YouTube video ID using yt-dlp native Python library.
     Returns (filepath, track_title, artist, extension)
     """
     temp_dir = tempfile.gettempdir()
     track_title, artist = _get_metadata(video_id)
-    search_query = f"{track_title} {artist}"
+    file_id = str(uuid.uuid4())
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     
-    print(f"\n[{video_id}] Invoking freyr-js for: {search_query}...")
+    print(f"\n[{video_id}] Downloading with yt-dlp...")
     try:
-        # Create a unique directory to easily locate the downloaded file
-        unique_dir = os.path.join(temp_dir, str(uuid.uuid4()))
-        os.makedirs(unique_dir, exist_ok=True)
+        ydl_opts = {
+            'format': 'm4a/bestaudio/best',
+            'outtmpl': os.path.join(temp_dir, f"{file_id}.%(ext)s"),
+            'quiet': True,
+            'no_warnings': True,
+            'extract_audio': True,
+        }
         
-        # freyr requires nodejs and will search spotify, download, and tag the .m4a
-        subprocess.run(
-            ["freyr", "get", search_query, "-d", unique_dir, "--no-playlist"],
-            check=True
-        )
-        
-        # freyr saves as .m4a
-        m4a_files = [f for f in os.listdir(unique_dir) if f.endswith(".m4a")]
-        if not m4a_files:
-            raise Exception("freyr-js completed but no .m4a file was found.")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(youtube_url, download=True)
+            downloaded_file = ydl.prepare_filename(info)
             
-        m4a_filepath = os.path.join(unique_dir, m4a_files[0])
-        return m4a_filepath, track_title, artist, "m4a"
-        
+            # yt-dlp might download a .webm or .opus if m4a isn't available, but it prefers m4a here.
+            _, ext = os.path.splitext(downloaded_file)
+            return downloaded_file, track_title, artist, ext.replace('.', '')
+            
     except Exception as e:
-        raise Exception(f"freyr-js failed: {e}")
+        raise Exception(f"yt-dlp failed: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

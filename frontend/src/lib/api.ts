@@ -54,6 +54,9 @@ export async function downloadTrackWeb(spotifyId: string, trackName: string): Pr
   let ext = "flac";
   const contentType = response.headers.get("Content-Type");
   if (contentType?.includes("m4a") || contentType?.includes("mp4")) ext = "m4a";
+  else if (contentType?.includes("webm")) ext = "webm";
+  else if (contentType?.includes("opus")) ext = "opus";
+  else if (contentType?.includes("ogg")) ext = "ogg";
   link.download = `${safeTrackName}.${ext}`;
 
   document.body.appendChild(link);

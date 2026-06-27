@@ -124,6 +124,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setDownloadedFlac(true);
     } catch (err: any) {
       console.error('FLAC download failed:', err.message || err);
+      alert(`Download failed: ${err.message || 'Unknown error. Check backend logs.'}`);
     } finally {
       setDownloadingFlac(false);
     }
