@@ -48,8 +48,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [showQueue, setShowQueue] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragValue, setDragValue] = useState(0);
-  const [downloadJob, setDownloadJob] = useState<{id: string; stage: string; pct: number; done: boolean; error: string | null} | null>(null);
-  const downloadPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [downloadingFlac, setDownloadingFlac] = useState(false);
+  const [downloadedFlac, setDownloadedFlac] = useState(false);
   const [lyricsText, setLyricsText] = useState<string | null>(null);
   const [lyricsData, setLyricsData] = useState<{ time: number, text: string }[] | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -61,8 +61,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setProgress(0);
     setDuration(0);
     setIsLiked(false);
-    setDownloadJob(null);
-    if (downloadPollRef.current) clearInterval(downloadPollRef.current);
+    setDownloadedFlac(false);
     setLyricsText(null);
   }, [currentTrack?.id]);
 
@@ -118,45 +117,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const hasPrev = onPrev && (currentIndex > 0 || repeatMode !== 'none');
   const hasNext = onNext && (currentIndex < queue.length - 1 || repeatMode !== 'none');
 
-  const handleFlacDownload = async () => {
-    if (!currentTrack || (downloadJob && !downloadJob.done)) return;
-
-    // Start job on backend
-    const res = await fetch(`${API}/api/download/start`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ spotify_id: currentTrack.id }),
-    });
-    if (!res.ok) return;
-    const { job_id } = await res.json();
-
-    setDownloadJob({ id: job_id, stage: "Starting…", pct: 0, done: false, error: null });
-
-    // Poll progress every 800ms
-    const interval = setInterval(async () => {
-      try {
-        const pr = await fetch(`${API}/api/download/progress/${job_id}`);
-        const data = await pr.json();
-        setDownloadJob({ id: job_id, stage: data.stage, pct: data.pct, done: data.done, error: data.error });
-
-        if (data.done) {
-          clearInterval(interval);
-          if (!data.error) {
-            // Trigger native browser download
-            const a = document.createElement("a");
-            a.href = `${API}/api/download/file/${job_id}`;
-            a.download = data.filename || "track.flac";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          }
-        }
-      } catch {
-        clearInterval(interval);
-      }
-    }, 800);
-
-    downloadPollRef.current = interval;
+  const handleFlacDownload = () => {
+    if (!currentTrack || downloadingFlac) return;
+    setDownloadingFlac(true);
+    // Native browser download — proven working architecture
+    window.location.href = `https://web-production-9dcae.up.railway.app/api/download?spotify_id=${currentTrack.id}`;
+    setTimeout(() => {
+      setDownloadingFlac(false);
+      setDownloadedFlac(true);
+    }, 4000);
   };
 
   const handleEnded = () => {
@@ -400,48 +369,21 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
           {/* RIGHT: Side controls */}
           <div className="sp-player-right">
-            {/* FLAC Download */}
+            {/* Download */}
             <button
               id="player-download-flac"
-              className={`sp-flac-btn ${downloadJob?.done && !downloadJob?.error ? 'done' : ''} ${downloadJob && !downloadJob.done ? 'downloading' : ''}`}
+              className={`sp-flac-btn ${downloadedFlac ? 'done' : ''}`}
               onClick={handleFlacDownload}
-              disabled={!!(downloadJob && !downloadJob.done)}
-              title="Download FLAC"
-              style={{ minWidth: 80, flexDirection: 'column', gap: 2, position: 'relative', overflow: 'hidden' }}
+              disabled={downloadingFlac}
+              title="Download audio"
             >
-              {/* Progress bar fill behind the button text */}
-              {downloadJob && !downloadJob.done && (
-                <div style={{
-                  position: 'absolute', left: 0, top: 0, bottom: 0,
-                  width: `${downloadJob.pct}%`,
-                  background: 'rgba(30,215,96,0.25)',
-                  transition: 'width 0.5s ease',
-                  borderRadius: 'inherit',
-                }} />
-              )}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 4 }}>
-                {downloadJob && !downloadJob.done
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  : downloadJob?.done && !downloadJob.error
-                    ? <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                    : <Download className="w-3.5 h-3.5" />
-                }
-                <span style={{ fontSize: 10 }}>
-                  {downloadJob?.error
-                    ? 'Error'
-                    : downloadJob?.done
-                      ? 'Saved!'
-                      : downloadJob
-                        ? `${downloadJob.pct}%`
-                        : 'FLAC'
-                  }
-                </span>
-              </div>
-              {downloadJob && !downloadJob.done && (
-                <span style={{ position: 'relative', fontSize: 9, opacity: 0.7, maxWidth: 72, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                  {downloadJob.stage}
-                </span>
-              )}
+              {downloadingFlac
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : downloadedFlac
+                  ? <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  : <Download className="w-3.5 h-3.5" />
+              }
+              <span>{downloadedFlac ? 'Saved!' : 'M4A'}</span>
             </button>
 
             {/* Lyrics */}

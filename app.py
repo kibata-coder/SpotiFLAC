@@ -67,124 +67,46 @@ def _get_metadata(video_id: str):
         return "Unknown Track", "Unknown Artist"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Core downloader: freyr → .m4a → ffmpeg → .flac
+# Downloader: yt_dlp → .m4a  (simple, proven working)
 # ─────────────────────────────────────────────────────────────────────────────
-def download_audio(video_id: str, job_id: str = None):
+def download_audio(video_id: str):
     """
-    Pipeline:
-      1. iTunes search API  → Apple Music URL  (no API key needed)
-      2. freyr get <url>    → downloads .m4a   (installed globally in Docker)
-      3. ffmpeg             → converts to .flac (via imageio_ffmpeg)
-    Returns (flac_filepath, track_title, artist)
+    Download best audio as m4a using yt_dlp Python library.
+    Returns (filepath, track_title, artist, ext)
     """
-    temp_dir   = tempfile.gettempdir()
-    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+    temp_dir    = tempfile.gettempdir()
+    file_id     = str(uuid.uuid4())
+    youtube_url = f"https://www.youtube.com/watch?v={video_id}"
     track_title, artist = _get_metadata(video_id)
 
-    # Strip junk from title so iTunes search is accurate
-    clean_title = re.sub(r'[\(\[].*?[\)\]]', '', track_title).strip()
-    print(f"\n[{video_id}] freyr pipeline: {clean_title} — {artist}")
+    ydl_opts = {
+        "format":       "m4a/bestaudio/best",
+        "outtmpl":      os.path.join(temp_dir, f"{file_id}.%(ext)s"),
+        "quiet":        True,
+        "no_warnings":  True,
+        **({
+            "cookiefile": COOKIES_PATH
+        } if os.path.exists(COOKIES_PATH) else {}),
+    }
 
-    # ── Step 1: Find Apple Music URL via iTunes public search API ─────────────
-    if job_id:
-        _update_job(job_id, stage="Searching Apple Music…", pct=5)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info       = ydl.extract_info(youtube_url, download=True)
+        downloaded = ydl.prepare_filename(info)
 
-    apple_music_url = None
-    try:
-        resp = requests.get(
-            "https://itunes.apple.com/search",
-            params={"term": f"{clean_title} {artist}", "media": "music", "entity": "song", "limit": "1"},
-            timeout=10,
-        )
-        results = resp.json().get("results", [])
-        if results:
-            apple_music_url = results[0].get("trackViewUrl")
-            print(f"  ✅ Apple Music URL: {apple_music_url}")
-    except Exception as e:
-        print(f"  iTunes search error: {e}")
-
-    if not apple_music_url:
-        err = f"Could not find '{clean_title}' on Apple Music via iTunes search."
-        if job_id:
-            _update_job(job_id, done=True, error=err, stage="Failed")
-        raise Exception(err)
-
-    # ── Step 2: freyr downloads the .m4a ──────────────────────────────────────
-    if job_id:
-        _update_job(job_id, stage="freyr downloading…", pct=15)
-
-    unique_dir = os.path.join(temp_dir, str(uuid.uuid4()))
-    os.makedirs(unique_dir, exist_ok=True)
-
-    print(f"  Running: freyr get {apple_music_url}")
-    try:
-        result = subprocess.run(
-            ["freyr", "get", apple_music_url, "-d", unique_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=300,
-        )
-        if result.returncode != 0:
-            err_out = result.stderr.decode(errors="ignore")[-400:]
-            raise Exception(f"freyr exited {result.returncode}: {err_out}")
-    except FileNotFoundError:
-        err = "freyr not found on server. Check that 'npm install -g freyr' ran during Docker build."
-        if job_id:
-            _update_job(job_id, done=True, error=err, stage="Failed")
-        raise Exception(err)
-    except subprocess.TimeoutExpired:
-        err = "freyr timed out after 5 minutes."
-        if job_id:
-            _update_job(job_id, done=True, error=err, stage="Failed")
-        raise Exception(err)
-
-    # ── Step 3: Locate the .m4a freyr produced ────────────────────────────────
-    m4a_file = None
-    for root, _, files in os.walk(unique_dir):
-        for f in files:
-            if f.endswith(".m4a"):
-                m4a_file = os.path.join(root, f)
+    # Locate the actual file yt_dlp wrote
+    if not os.path.exists(downloaded):
+        for ext in (".m4a", ".webm", ".opus", ".ogg", ".mp4"):
+            candidate = os.path.splitext(downloaded)[0] + ext
+            if os.path.exists(candidate):
+                downloaded = candidate
                 break
-        if m4a_file:
-            break
 
-    if not m4a_file:
-        out = result.stdout.decode(errors="ignore")[-600:]
-        err = f"freyr ran but no .m4a found in output dir.\nfreyr stdout: {out}"
-        if job_id:
-            _update_job(job_id, done=True, error=err, stage="Failed")
-        raise Exception(err)
+    if not os.path.exists(downloaded):
+        raise Exception("yt_dlp finished but output file not found.")
 
-    print(f"  ✅ freyr produced: {m4a_file}")
-
-    # ── Step 4: ffmpeg .m4a → .flac ───────────────────────────────────────────
-    if job_id:
-        _update_job(job_id, stage="Converting to FLAC…", pct=82)
-
-    file_id   = str(uuid.uuid4())
-    flac_path = os.path.join(temp_dir, f"{file_id}.flac")
-
-    try:
-        conv = subprocess.run(
-            [ffmpeg_exe, "-y", "-i", m4a_file, "-c:a", "flac", "-compression_level", "5", flac_path],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        )
-        if conv.returncode != 0:
-            raise Exception(conv.stderr.decode(errors="ignore")[-300:])
-    finally:
-        shutil.rmtree(unique_dir, ignore_errors=True)
-
-    if not os.path.exists(flac_path):
-        raise Exception("FLAC file not found after ffmpeg conversion.")
-
-    safe_name = re.sub(r'[\\/*?:"<>|]', "", f"{track_title} - {artist}")
-    print(f"  ✅ FLAC ready: {flac_path}")
-
-    if job_id:
-        _update_job(job_id, stage="Ready!", pct=100, done=True,
-                    filepath=flac_path, filename=f"{safe_name}.flac")
-
-    return flac_path, track_title, artist
+    _, ext = os.path.splitext(downloaded)
+    print(f"  ✅ Downloaded: {downloaded}")
+    return downloaded, track_title, artist, ext.lstrip(".")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -229,59 +151,23 @@ def search():
         return jsonify({"error": str(e)}), 500
 
 
-# ── Download: start a background job, return job_id immediately ──────────────
-@app.route("/api/download/start", methods=["POST"])
-def download_start():
-    data = request.json or {}
-    spotify_id = data.get("spotify_id")
+@app.route("/api/download", methods=["GET"])
+def download():
+    spotify_id = request.args.get("spotify_id")
     if not spotify_id:
         return jsonify({"error": "Missing spotify_id"}), 400
-
-    job_id = str(uuid.uuid4())
-    _new_job(job_id)
-
-    def _worker():
-        try:
-            flac_path, title, artist = download_audio(spotify_id, job_id=job_id)
-        except Exception as e:
-            _update_job(job_id, done=True, error=str(e), stage="Failed")
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-
-    return jsonify({"job_id": job_id})
-
-
-# ── Poll progress ─────────────────────────────────────────────────────────────
-@app.route("/api/download/progress/<job_id>", methods=["GET"])
-def download_progress(job_id):
-    job = _get_job(job_id)
-    if not job:
-        return jsonify({"error": "Unknown job"}), 404
-    return jsonify(job)
-
-
-# ── Serve the finished file ───────────────────────────────────────────────────
-@app.route("/api/download/file/<job_id>", methods=["GET"])
-def download_file(job_id):
-    job = _get_job(job_id)
-    if not job:
-        return jsonify({"error": "Unknown job"}), 404
-    if not job.get("done") or job.get("error"):
-        return jsonify({"error": job.get("error", "Not ready")}), 400
-
-    filepath = job.get("filepath")
-    filename = job.get("filename", "track.flac")
-
-    if not filepath or not os.path.exists(filepath):
-        return jsonify({"error": "File not found on server"}), 404
-
-    return send_file(
-        filepath,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="audio/flac",
-    )
+    try:
+        filepath, title, artist, ext = download_audio(spotify_id)
+        safe_name = re.sub(r'[\\/*?:"<>|]', "", f"{title} - {artist}")
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=f"{safe_name}.{ext}",
+            mimetype=f"audio/{ext}",
+        )
+    except Exception as e:
+        print(f"Download error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/stream", methods=["GET"])
@@ -290,8 +176,8 @@ def stream():
     if not spotify_id:
         return jsonify({"error": "Missing spotify_id"}), 400
     try:
-        flac_path, title, artist = download_audio(spotify_id)
-        return send_file(flac_path, as_attachment=False, mimetype="audio/flac")
+        filepath, title, artist, ext = download_audio(spotify_id)
+        return send_file(filepath, as_attachment=False, mimetype=f"audio/{ext}")
     except Exception as e:
         print(f"Stream error: {e}")
         return jsonify({"error": str(e)}), 500
