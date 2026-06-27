@@ -123,33 +123,43 @@ import yt_dlp
 def download_audio(video_id: str):
     """
     Download audio for a YouTube video ID using yt-dlp native Python library.
+    Downloads best audio and converts to FLAC using ffmpeg.
     Returns (filepath, track_title, artist, extension)
     """
     temp_dir = tempfile.gettempdir()
     track_title, artist = _get_metadata(video_id)
     file_id = str(uuid.uuid4())
     youtube_url = f"https://www.youtube.com/watch?v={video_id}"
-    
-    print(f"\n[{video_id}] Downloading with yt-dlp...")
+    flac_filepath = os.path.join(temp_dir, f"{file_id}.flac")
+
+    print(f"\n[{video_id}] Downloading with yt-dlp and converting to FLAC...")
     try:
+        import imageio_ffmpeg
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+
         ydl_opts = {
-            'format': 'm4a/bestaudio/best',
+            'format': 'bestaudio/best',
             'outtmpl': os.path.join(temp_dir, f"{file_id}.%(ext)s"),
             'quiet': True,
             'no_warnings': True,
-            'extract_audio': True,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'flac',
+                'preferredquality': '0',  # lossless
+            }],
+            'ffmpeg_location': os.path.dirname(ffmpeg_exe),
         }
-        
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(youtube_url, download=True)
-            downloaded_file = ydl.prepare_filename(info)
-            
-            # yt-dlp might download a .webm or .opus if m4a isn't available, but it prefers m4a here.
-            _, ext = os.path.splitext(downloaded_file)
-            return downloaded_file, track_title, artist, ext.replace('.', '')
-            
+            ydl.download([youtube_url])
+
+        if not os.path.exists(flac_filepath):
+            raise Exception("FLAC conversion completed but output file not found.")
+
+        return flac_filepath, track_title, artist, "flac"
+
     except Exception as e:
-        raise Exception(f"yt-dlp failed: {e}")
+        raise Exception(f"yt-dlp FLAC conversion failed: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -193,10 +203,14 @@ def search():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/download", methods=["POST"])
+@app.route("/api/download", methods=["POST", "GET"])
 def download():
-    data       = request.json or {}
-    spotify_id = data.get("spotify_id")
+    if request.method == "POST":
+        data = request.json or {}
+        spotify_id = data.get("spotify_id")
+    else:
+        spotify_id = request.args.get("spotify_id")
+        
     if not spotify_id:
         return jsonify({"error": "Missing spotify_id"}), 400
     try:

@@ -116,18 +116,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const hasPrev = onPrev && (currentIndex > 0 || repeatMode !== 'none');
   const hasNext = onNext && (currentIndex < queue.length - 1 || repeatMode !== 'none');
 
-  const handleFlacDownload = async () => {
+  const handleFlacDownload = () => {
     if (!currentTrack || downloadingFlac) return;
     setDownloadingFlac(true);
-    try {
-      await downloadTrackWeb(currentTrack.id, currentTrack.name);
-      setDownloadedFlac(true);
-    } catch (err: any) {
-      console.error('FLAC download failed:', err.message || err);
-      alert(`Download failed: ${err.message || 'Unknown error. Check backend logs.'}`);
-    } finally {
+    
+    // Use native browser navigation to trigger the download.
+    // This perfectly bypasses fetch() timeouts, silent popup blockers, and memory limits!
+    window.location.href = `https://web-production-9dcae.up.railway.app/api/download?spotify_id=${currentTrack.id}`;
+    
+    // We can't perfectly intercept when a native download finishes, so reset the spinner after a brief window
+    setTimeout(() => {
       setDownloadingFlac(false);
-    }
+      setDownloadedFlac(true);
+    }, 4000);
   };
 
   const handleEnded = () => {
