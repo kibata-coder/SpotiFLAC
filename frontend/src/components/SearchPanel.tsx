@@ -6,6 +6,8 @@ import {
 import { searchSpotify, downloadTrackWeb } from '../lib/api';
 import type { SearchResult } from '../lib/api';
 import { PlayerContext } from '../App';
+import { saveDownloadedTrack } from '../lib/offline';
+import { toast } from 'sonner';
 
 export const SearchPanel: React.FC = () => {
   const { playTrack, currentTrack, isPlaying } = useContext(PlayerContext);
@@ -36,10 +38,13 @@ export const SearchPanel: React.FC = () => {
     if (downloadingIds[track.id]) return;
     setDownloadingIds(prev => ({ ...prev, [track.id]: true }));
     try {
-      await downloadTrackWeb(track.id, track.name);
+      const blob = await downloadTrackWeb(track.id);
+      await saveDownloadedTrack(track, blob);
       setDownloadedIds(prev => new Set([...prev, track.id]));
+      toast.success("Saved to Library for offline playback!");
     } catch (error: any) {
       console.error('Download failed:', error);
+      toast.error(error.message || "Download failed");
     } finally {
       setDownloadingIds(prev => ({ ...prev, [track.id]: false }));
     }

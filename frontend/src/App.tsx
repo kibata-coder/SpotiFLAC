@@ -1,6 +1,7 @@
-import { useState, createContext, useContext } from 'react';
+import { useState, createContext } from 'react';
 import Sidebar from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
+import { LibraryPanel } from './components/LibraryPanel';
 import { AudioPlayer } from './components/AudioPlayer';
 import type { SearchResult } from './lib/api';
 import { getStreamUrl } from './lib/api';
@@ -91,17 +92,7 @@ function App() {
       case 'search':
         return <SearchPanel />;
       case 'queue':
-        return (
-          <div className="flex flex-col items-center justify-center h-full gap-4 py-20">
-            <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
-              <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--sp-subdued)' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-            <h2 className="text-white text-2xl font-bold m-0">Download Queue</h2>
-            <p className="m-0 text-sm" style={{ color: 'var(--sp-subdued)' }}>Your active downloads will appear here</p>
-          </div>
-        );
+        return <LibraryPanel />;
       case 'history':
         return (
           <div className="flex flex-col items-center justify-center h-full gap-4 py-20">

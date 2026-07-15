@@ -65,6 +65,31 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setLyricsText(null);
   }, [currentTrack?.id]);
 
+  // Media Session API Integration
+  useEffect(() => {
+    if ('mediaSession' in navigator && currentTrack) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.name,
+        artist: currentTrack.artists,
+        album: currentTrack.album || '',
+        artwork: currentTrack.cover ? [
+          { src: currentTrack.cover, sizes: '300x300', type: 'image/jpeg' },
+          { src: currentTrack.cover, sizes: '640x640', type: 'image/jpeg' }
+        ] : []
+      });
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [currentTrack, isPlaying]);
+
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', onPlayPause);
+      navigator.mediaSession.setActionHandler('pause', onPlayPause);
+      navigator.mediaSession.setActionHandler('previoustrack', onPrev ? () => onPrev() : null);
+      navigator.mediaSession.setActionHandler('nexttrack', onNext ? () => onNext() : null);
+    }
+  }, [onPlayPause, onPrev, onNext]);
+
   // Fetch lyrics when the panel is opened
   useEffect(() => {
     if (currentTrack && showLyrics && lyricsText === null && !lyricsLoading) {

@@ -9,7 +9,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
   const navItems = [
     { id: 'search', label: 'Search Track', icon: Search },
-    { id: 'queue', label: 'Download Queue', icon: ListMusic },
+    { id: 'queue', label: 'Your Library', icon: ListMusic },
     { id: 'history', label: 'History', icon: History },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];

@@ -27,11 +27,9 @@ export async function searchSpotify(query: string, searchType: string = 'track')
   return response.json();
 }
 
-export async function downloadTrackWeb(spotifyId: string, trackName: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/download`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ spotify_id: spotifyId }),
+export async function downloadTrackWeb(spotifyId: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}/api/download?spotify_id=${encodeURIComponent(spotifyId)}`, {
+    method: "GET",
   });
 
   if (!response.ok) {
@@ -44,28 +42,7 @@ export async function downloadTrackWeb(spotifyId: string, trackName: string): Pr
     throw new Error(errorMsg);
   }
 
-  // Trigger browser download
-  const blob        = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link        = document.createElement("a");
-  link.href         = downloadUrl;
-
-  const safeTrackName = trackName.replace(/[^a-zA-Z0-9 \-_]/g, "");
-  let ext = "flac";
-  const contentType = response.headers.get("Content-Type");
-  if (contentType?.includes("m4a") || contentType?.includes("mp4")) ext = "m4a";
-  else if (contentType?.includes("webm")) ext = "webm";
-  else if (contentType?.includes("opus")) ext = "opus";
-  else if (contentType?.includes("ogg")) ext = "ogg";
-  link.download = `${safeTrackName}.${ext}`;
-
-  document.body.appendChild(link);
-  link.click();
-
-  setTimeout(() => {
-    window.URL.revokeObjectURL(downloadUrl);
-    link.remove();
-  }, 1000);
+  return await response.blob();
 }
 
 export function getStreamUrl(spotifyId: string): string {

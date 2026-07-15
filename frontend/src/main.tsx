@@ -4,9 +4,16 @@ import { MotionConfig } from "motion/react";
 import "./index.css";
 import App from "./App.tsx";
 import { Toaster } from "@/components/ui/sonner";
-createRoot(document.getElementById("root")!).render(<StrictMode>
+import { registerSW } from "virtual:pwa-register";
+
+// Register Service Worker
+registerSW({ immediate: true });
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
     <MotionConfig reducedMotion="user">
       <App />
       <Toaster position="bottom-left" duration={1000}/>
     </MotionConfig>
-  </StrictMode>);
+  </StrictMode>
+);
