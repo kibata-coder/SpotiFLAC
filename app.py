@@ -71,7 +71,7 @@ def _get_metadata(video_id: str):
 # ─────────────────────────────────────────────────────────────────────────────
 def download_audio(video_id: str):
     """
-    Download best audio as m4a using yt_dlp Python library.
+    Download best audio and convert to mp3 using yt_dlp.
     Returns (filepath, track_title, artist, ext)
     """
     temp_dir    = tempfile.gettempdir()
@@ -80,7 +80,12 @@ def download_audio(video_id: str):
     track_title, artist = _get_metadata(video_id)
 
     ydl_opts = {
-        "format":       "m4a/bestaudio/best",
+        "format":       "bestaudio/best",
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": "192",
+        }],
         "outtmpl":      os.path.join(temp_dir, f"{file_id}.%(ext)s"),
         "quiet":        True,
         "no_warnings":  True,
@@ -95,7 +100,7 @@ def download_audio(video_id: str):
 
     # Locate the actual file yt_dlp wrote
     if not os.path.exists(downloaded):
-        for ext in (".m4a", ".webm", ".opus", ".ogg", ".mp4"):
+        for ext in (".mp3", ".m4a", ".webm", ".opus", ".ogg", ".mp4"):
             candidate = os.path.splitext(downloaded)[0] + ext
             if os.path.exists(candidate):
                 downloaded = candidate
