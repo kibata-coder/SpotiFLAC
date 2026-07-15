@@ -81,6 +81,7 @@ def download_audio(video_id: str):
 
     ydl_opts = {
         "format":       "bestaudio/best",
+        "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
         "postprocessors": [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
