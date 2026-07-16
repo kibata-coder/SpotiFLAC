@@ -1,8 +1,5 @@
-// Use relative paths, but explicitly enforce HTTPS on production to prevent 301 redirects dropping the POST method (causing HTTP 405s)
-let API_BASE_URL = "";
-if (window.location.hostname.includes("railway.app")) {
-  API_BASE_URL = `https://${window.location.hostname}`;
-}
+// Always use the explicit HTTPS URL — prevents HTTP→HTTPS redirect stripping the POST body (which causes HTTP 405 on mobile)
+const API_BASE_URL = "https://web-production-9dcae.up.railway.app";
 export interface SearchResult {
   id: string;
   name: string;
