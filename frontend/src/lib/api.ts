@@ -1,5 +1,8 @@
-// Use relative paths to hit the Vite proxy in development or same-domain backend in production
-const API_BASE_URL = "";
+// Use relative paths, but explicitly enforce HTTPS on production to prevent 301 redirects dropping the POST method (causing HTTP 405s)
+let API_BASE_URL = "";
+if (window.location.hostname.includes("railway.app")) {
+  API_BASE_URL = `https://${window.location.hostname}`;
+}
 export interface SearchResult {
   id: string;
   name: string;
