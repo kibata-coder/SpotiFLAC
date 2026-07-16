@@ -141,9 +141,8 @@ export const SearchPanel: React.FC = () => {
       {/* ── Column headers ─────────────────────────────── */}
       {results.length > 0 && !loading && (
         <div
-          className="grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in"
+          className="grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 animate-fade-in grid-cols-[2.5rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_4rem_10rem]"
           style={{
-            gridTemplateColumns: '2.5rem 1fr 4rem 10rem',
             color: 'var(--sp-subdued)',
             borderColor: 'var(--sp-border)',
           }}
@@ -167,10 +166,9 @@ export const SearchPanel: React.FC = () => {
             <div
               key={item.id}
               id={`track-${item.id}`}
-              className="sp-track-row group animate-fade-in"
+              className="sp-track-row group animate-fade-in grid-cols-[2.5rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_4rem_10rem]"
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2.5rem 1fr 4rem 10rem',
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.375rem 0.5rem',
@@ -331,8 +329,7 @@ export const SearchPanel: React.FC = () => {
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="grid items-center gap-4 px-4 py-2.5 rounded-md"
-              style={{ gridTemplateColumns: '2.5rem 1fr 4rem 10rem' }}
+              className="grid items-center gap-4 px-4 py-2.5 rounded-md grid-cols-[2.5rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_4rem_10rem]"
             >
               <div className="sp-skeleton w-5 h-4 mx-auto rounded" />
               <div className="flex items-center gap-3">

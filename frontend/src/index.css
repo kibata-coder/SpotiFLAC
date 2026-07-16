@@ -204,7 +204,6 @@
 /* ── Spotify track rows ───────────────────────────────────────── */
 .sp-track-row {
   display: grid;
-  grid-template-columns: 2.5rem 1fr auto;
   align-items: center;
   gap: 1rem;
   padding: 0.5rem 1rem;

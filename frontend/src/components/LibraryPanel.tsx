@@ -67,9 +67,8 @@ export const LibraryPanel: React.FC = () => {
       </div>
 
       <div
-        className="grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1"
+        className="grid items-center gap-2 sm:gap-4 px-2 sm:px-4 py-2 text-xs font-bold uppercase tracking-widest border-b mb-1 grid-cols-[2.5rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_4rem]"
         style={{
-          gridTemplateColumns: '2.5rem 1fr 4rem',
           color: 'var(--sp-subdued)',
           borderColor: 'var(--sp-border)',
         }}
@@ -87,10 +86,9 @@ export const LibraryPanel: React.FC = () => {
           return (
             <div
               key={item.track.id}
-              className="sp-track-row group animate-fade-in"
+              className="sp-track-row group animate-fade-in grid-cols-[2.5rem_1fr_auto] sm:grid-cols-[2.5rem_1fr_4rem]"
               style={{
                 display: 'grid',
-                gridTemplateColumns: '2.5rem 1fr 4rem',
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.375rem 0.5rem',
