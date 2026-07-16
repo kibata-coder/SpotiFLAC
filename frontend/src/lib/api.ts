@@ -21,7 +21,11 @@ export async function searchSpotify(query: string, searchType: string = 'track')
   });
 
   if (!response.ok) {
-    throw new Error(`Search failed: ${response.statusText}`);
+    let errorText = '';
+    try {
+      errorText = await response.text();
+    } catch (e) {}
+    throw new Error(`Search failed: HTTP ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   return response.json();
