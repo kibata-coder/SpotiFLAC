@@ -19,7 +19,17 @@ from flask_cors import CORS
 COOKIES_PATH = "/app/cookies.txt"
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {
+    "origins": [
+        "https://soudmusic.pages.dev",
+        "https://web-production-9dcae.up.railway.app",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+    ],
+    "methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Content-Type"],
+}})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # YTMusic client (search + lyrics)

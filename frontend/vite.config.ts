@@ -46,17 +46,8 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
   },
-  // Optional: Clean up standard development server settings
   server: {
     port: 3000,
     strictPort: true,
-    host: true, // Allow connections from network IPs (mobile)
-    proxy: {
-      '/api': {
-        target: 'https://web-production-9dcae.up.railway.app',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
   }
 });
