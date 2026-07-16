@@ -25,10 +25,12 @@ export const SearchPanel: React.FC = () => {
     setLoading(true);
     setHasSearched(true);
     try {
-      const data = await searchSpotify(query, searchType);
+      const data = await searchSpotify(query.trim(), searchType);
       setResults(data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Search error:', error);
+      toast.error(error.message || 'Search failed. Please check your connection.');
+      setResults([]);
     } finally {
       setLoading(false);
     }

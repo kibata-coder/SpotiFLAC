@@ -129,6 +129,7 @@ def search():
     data  = request.json or {}
     query = data.get("query")
     limit = int(data.get("limit", 20))
+    search_type = data.get("search_type", "track")
 
     if not query:
         return jsonify({"error": "Missing query"}), 400
@@ -136,10 +137,13 @@ def search():
         return jsonify({"error": "YTMusic not configured"}), 500
 
     try:
-        results = ytmusic.search(query=query, filter="songs", limit=limit)
+        yt_filter = "songs" if search_type == "track" else "albums"
+        results = ytmusic.search(query=query, filter=yt_filter, limit=limit)
         tracks  = []
         for track in results:
-            if track.get("resultType") != "song":
+            if search_type == "track" and track.get("resultType") != "song":
+                continue
+            if search_type == "album" and track.get("resultType") != "album":
                 continue
             thumbnails  = track.get("thumbnails", [])
             image_url   = thumbnails[-1]["url"] if thumbnails else ""
