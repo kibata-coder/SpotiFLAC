@@ -1,5 +1,5 @@
-// Hardcoded to Railway production to ensure mobile browsers hit the right backend
-const API_BASE_URL = "https://web-production-9dcae.up.railway.app";
+// Use relative paths to hit the Vite proxy in development or same-domain backend in production
+const API_BASE_URL = "";
 export interface SearchResult {
   id: string;
   name: string;
