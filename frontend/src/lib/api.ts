@@ -1,5 +1,6 @@
-// Always use the explicit HTTPS URL — prevents HTTP→HTTPS redirect stripping the POST body (which causes HTTP 405 on mobile)
-const API_BASE_URL = "https://web-production-9dcae.up.railway.app";
+// Empty string = use relative URLs → hits Cloudflare Pages Function proxy → Railway
+// This means the phone never touches railway.app directly (avoids WiFi blocks)
+const API_BASE_URL = "";
 export interface SearchResult {
   id: string;
   name: string;
