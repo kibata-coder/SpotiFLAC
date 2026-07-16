@@ -5,6 +5,7 @@ import { LibraryPanel } from './components/LibraryPanel';
 import { AudioPlayer } from './components/AudioPlayer';
 import type { SearchResult } from './lib/api';
 import { getStreamUrl } from './lib/api';
+import { getTrackBlob } from './lib/offline';
 
 export interface PlayerContextType {
   playTrack: (track: SearchResult, streamUrl: string, queue?: SearchResult[], index?: number) => void;
@@ -48,7 +49,7 @@ function App() {
     }
   };
 
-  const handlePrev = (forceWrap?: boolean) => {
+  const handlePrev = async (forceWrap?: boolean) => {
     let idx = currentIndex - 1;
     if (idx < 0) {
       if (forceWrap && queue.length > 0) {
@@ -59,13 +60,16 @@ function App() {
     }
     const t = queue[idx];
     if (!t) return;
+    // Check offline blob first
+    const blob = await getTrackBlob(t.id);
+    const url = blob ? URL.createObjectURL(blob) : getStreamUrl(t.id);
     setCurrentTrack(t);
-    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
+    setStreamUrl(url);
     setIsPlaying(true);
     setCurrentIndex(idx);
   };
 
-  const handleNext = (forceWrap?: boolean) => {
+  const handleNext = async (forceWrap?: boolean) => {
     let idx = currentIndex + 1;
     if (idx >= queue.length) {
       if (forceWrap && queue.length > 0) {
@@ -76,8 +80,11 @@ function App() {
     }
     const t = queue[idx];
     if (!t) return;
+    // Check offline blob first
+    const blob = await getTrackBlob(t.id);
+    const url = blob ? URL.createObjectURL(blob) : getStreamUrl(t.id);
     setCurrentTrack(t);
-    setStreamUrl(`https://www.youtube.com/watch?v=${t.id}`);
+    setStreamUrl(url);
     setIsPlaying(true);
     setCurrentIndex(idx);
   };
@@ -249,10 +256,15 @@ function App() {
         currentIndex={currentIndex}
         onPrev={handlePrev}
         onNext={handleNext}
-        onError={() => {
-          console.warn("YouTube embedded playback failed. Falling back to backend stream...");
+        onError={async () => {
+          console.warn("Playback failed. Checking offline storage...");
           if (currentTrack) {
-            setStreamUrl(`https://web-production-9dcae.up.railway.app/api/stream?spotify_id=${currentTrack.id}`);
+            const blob = await getTrackBlob(currentTrack.id);
+            if (blob) {
+              setStreamUrl(URL.createObjectURL(blob));
+            } else {
+              setStreamUrl(getStreamUrl(currentTrack.id));
+            }
           }
         }}
       />
