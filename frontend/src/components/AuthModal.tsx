@@ -71,10 +71,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthSuc
     setLoading(true);
     setError(null);
     try {
+      // Use the actual current URL origin (soudmusic.pages.dev or localhost)
+      const redirectUrl = window.location.origin;
       const { error: oAuthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: redirectUrl
         }
       });
       if (oAuthError) throw oAuthError;
