@@ -378,6 +378,209 @@ def get_lyrics():
         return jsonify({"error": str(e)}), 500
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 2 — Discovery & Personalization
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _normalize_track(t: dict) -> dict | None:
+    """Convert any YTMusic track dict into the standard SearchResult shape."""
+    vid = t.get("videoId")
+    if not vid:
+        return None
+    thumbnails  = t.get("thumbnails", [])
+    image_url   = thumbnails[-1]["url"] if thumbnails else ""
+    artists_raw = t.get("artists", [])
+    if isinstance(artists_raw, list):
+        artists_str = ", ".join(a["name"] for a in artists_raw if isinstance(a, dict))
+    else:
+        artists_str = str(artists_raw)
+    album = t.get("album")
+    if isinstance(album, dict):
+        album_name = album.get("name", "")
+    else:
+        album_name = str(album) if album else ""
+    return {
+        "id":      vid,
+        "name":    t.get("title", ""),
+        "artists": artists_str or "Unknown Artist",
+        "album":   album_name,
+        "cover":   image_url,
+        "type":    "track",
+    }
+
+
+@app.route("/api/charts", methods=["GET"])
+def charts():
+    """Trending charts. country='ZZ' for global."""
+    country = request.args.get("country", "ZZ")
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        data  = ytmusic.get_charts(country=country)
+        songs_section = data.get("songs", {})
+        raw_items     = songs_section.get("items", [])
+        tracks = []
+        for i, item in enumerate(raw_items[:20]):
+            t = _normalize_track(item)
+            if not t:
+                continue
+            t["rank"]  = item.get("rank", i + 1)
+            t["trend"] = item.get("trend", "NEUTRAL").upper()
+            tracks.append(t)
+        # Trending section (videos / trending chart)
+        trending_section = data.get("trending", {})
+        trending_items   = trending_section.get("items", [])
+        trending = []
+        for item in trending_items[:10]:
+            t = _normalize_track(item)
+            if t:
+                trending.append(t)
+        return jsonify({"songs": tracks, "trending": trending})
+    except Exception as e:
+        print(f"Charts error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/moods", methods=["GET"])
+def moods():
+    """Return mood & genre categories for Browse by Mood."""
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        data = ytmusic.get_mood_categories()
+        categories = []
+        for section_name, items in data.items():
+            for item in items:
+                thumbnails = item.get("thumbnails", [])
+                categories.append({
+                    "title":  item.get("title", ""),
+                    "params": item.get("params", ""),
+                    "cover":  thumbnails[-1]["url"] if thumbnails else "",
+                    "section": section_name,
+                })
+        return jsonify({"categories": categories})
+    except Exception as e:
+        print(f"Moods error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/mood-playlists", methods=["GET"])
+def mood_playlists():
+    """Return playlists for a given mood params token."""
+    params = request.args.get("params")
+    if not params:
+        return jsonify({"error": "Missing params"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        data = ytmusic.get_mood_playlists(params)
+        playlists = []
+        for item in data:
+            thumbnails = item.get("thumbnails", [])
+            playlists.append({
+                "id":    item.get("playlistId", ""),
+                "name":  item.get("title", ""),
+                "cover": thumbnails[-1]["url"] if thumbnails else "",
+            })
+        return jsonify({"playlists": playlists})
+    except Exception as e:
+        print(f"Mood playlists error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/playlist-tracks", methods=["GET"])
+def playlist_tracks():
+    """Load tracks from a YTMusic playlist by ID."""
+    playlist_id = request.args.get("playlist_id")
+    if not playlist_id:
+        return jsonify({"error": "Missing playlist_id"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        data   = ytmusic.get_playlist(playlist_id, limit=30)
+        tracks = []
+        for item in data.get("tracks", []):
+            t = _normalize_track(item)
+            if t:
+                tracks.append(t)
+        meta = {
+            "title":       data.get("title", ""),
+            "description": data.get("description", ""),
+            "cover":       (data.get("thumbnails") or [{}])[-1].get("url", ""),
+            "trackCount":  data.get("trackCount", len(tracks)),
+        }
+        return jsonify({"tracks": tracks, "meta": meta})
+    except Exception as e:
+        print(f"Playlist tracks error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/recommendations", methods=["POST"])
+def recommendations():
+    """
+    Personalized recommendations seeded from recent track IDs.
+    POST body: { "seed_ids": ["videoId1", "videoId2", ...] }
+    """
+    data     = request.json or {}
+    seed_ids = data.get("seed_ids", [])
+    if not seed_ids:
+        return jsonify({"error": "No seed IDs provided"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+
+    seen_ids = set()
+    result   = []
+
+    for vid in seed_ids[:5]:   # cap seeds to 5 to avoid too many API calls
+        try:
+            watch = ytmusic.get_watch_playlist(videoId=vid, radio=True, limit=12)
+            for t in watch.get("tracks", []):
+                track = _normalize_track(t)
+                if track and track["id"] not in seen_ids and track["id"] != vid:
+                    seen_ids.add(track["id"])
+                    result.append(track)
+        except Exception:
+            continue
+
+    random.shuffle(result)
+    return jsonify({"tracks": result[:30]})
+
+
+@app.route("/api/artist-releases", methods=["GET"])
+def artist_releases():
+    """Get recent albums / singles for an artist by channel_id."""
+    channel_id = request.args.get("channel_id")
+    if not channel_id:
+        return jsonify({"error": "Missing channel_id"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        artist_data = ytmusic.get_artist(channel_id)
+        releases    = []
+
+        for section_key in ("albums", "singles"):
+            section = artist_data.get(section_key, {})
+            for item in section.get("results", []):
+                thumbnails = item.get("thumbnails", [])
+                releases.append({
+                    "id":    item.get("browseId", ""),
+                    "name":  item.get("title", ""),
+                    "type":  item.get("type", section_key.rstrip("s")),
+                    "year":  item.get("year", ""),
+                    "cover": thumbnails[-1]["url"] if thumbnails else "",
+                })
+
+        releases.sort(key=lambda x: x.get("year", ""), reverse=True)
+        return jsonify({
+            "releases":    releases[:12],
+            "artist_name": artist_data.get("name", ""),
+        })
+    except Exception as e:
+        print(f"Artist releases error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port, debug=False)
+

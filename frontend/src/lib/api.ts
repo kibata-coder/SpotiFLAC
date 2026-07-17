@@ -81,8 +81,74 @@ export async function getRadio(videoId: string): Promise<SearchResult[]> {
 
 export async function getArtistTopTracks(channelId: string): Promise<{ tracks: SearchResult[]; artist_name: string }> {
   const response = await fetch(`${API_BASE_URL}/api/artist-top-tracks?channel_id=${encodeURIComponent(channelId)}`);
-  if (!response.ok) {
-    throw new Error("Failed to load artist tracks");
-  }
+  if (!response.ok) throw new Error("Failed to load artist tracks");
   return response.json();
 }
+
+// ─── Phase 2: Discovery ────────────────────────────────────────────────────
+
+export interface ChartTrack extends SearchResult {
+  rank?: number;
+  trend?: 'UP' | 'DOWN' | 'NEUTRAL';
+}
+
+export interface MoodCategory {
+  title: string;
+  params: string;
+  cover: string;
+  section: string;
+}
+
+export interface MoodPlaylist {
+  id: string;
+  name: string;
+  cover: string;
+}
+
+export interface PlaylistMeta {
+  title: string;
+  description: string;
+  cover: string;
+  trackCount: number;
+}
+
+export async function getCharts(country = 'ZZ'): Promise<{ songs: ChartTrack[]; trending: SearchResult[] }> {
+  const res = await fetch(`${API_BASE_URL}/api/charts?country=${country}`);
+  if (!res.ok) throw new Error('Charts unavailable');
+  return res.json();
+}
+
+export async function getMoods(): Promise<{ categories: MoodCategory[] }> {
+  const res = await fetch(`${API_BASE_URL}/api/moods`);
+  if (!res.ok) throw new Error('Moods unavailable');
+  return res.json();
+}
+
+export async function getMoodPlaylists(params: string): Promise<{ playlists: MoodPlaylist[] }> {
+  const res = await fetch(`${API_BASE_URL}/api/mood-playlists?params=${encodeURIComponent(params)}`);
+  if (!res.ok) throw new Error('Mood playlists unavailable');
+  return res.json();
+}
+
+export async function getPlaylistTracks(playlistId: string): Promise<{ tracks: SearchResult[]; meta: PlaylistMeta }> {
+  const res = await fetch(`${API_BASE_URL}/api/playlist-tracks?playlist_id=${encodeURIComponent(playlistId)}`);
+  if (!res.ok) throw new Error('Playlist tracks unavailable');
+  return res.json();
+}
+
+export async function getRecommendations(seedIds: string[]): Promise<{ tracks: SearchResult[] }> {
+  const res = await fetch(`${API_BASE_URL}/api/recommendations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ seed_ids: seedIds }),
+  });
+  if (!res.ok) throw new Error('Recommendations unavailable');
+  return res.json();
+}
+
+export async function getArtistReleases(channelId: string): Promise<{ releases: Array<{ id: string; name: string; type: string; year: string; cover: string }>; artist_name: string }> {
+  const res = await fetch(`${API_BASE_URL}/api/artist-releases?channel_id=${encodeURIComponent(channelId)}`);
+  if (!res.ok) throw new Error('Artist releases unavailable');
+  return res.json();
+}
+

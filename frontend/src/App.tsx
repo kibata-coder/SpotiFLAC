@@ -7,6 +7,7 @@ import { AuthModal } from './components/AuthModal';
 import { PlaylistsPanel } from './components/PlaylistsPanel';
 import { ArtistsPanel } from './components/ArtistsPanel';
 import { QueuePanel } from './components/QueuePanel';
+import { DiscoverPage } from './components/DiscoverPage';
 import type { SearchResult } from './lib/api';
 import { getStreamUrl } from './lib/api';
 import { getTrackBlob } from './lib/offline';
@@ -49,6 +50,10 @@ function App() {
   // Shuffle: track which indices have been played to avoid repeats
   const shuffleHistoryRef = useRef<Set<number>>(new Set());
 
+  // Listening history tracking (Phase 2)
+  const trackStartTimeRef = useRef<number>(Date.now());
+  const prevTrackRef      = useRef<SearchResult | null>(null);
+
   // Check auth state on mount
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -61,6 +66,29 @@ function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // ── Listening history (Phase 2) ──────────────────────────────────
+  // Log a track when the user switches tracks (if played >= 30s)
+  useEffect(() => {
+    const prev    = prevTrackRef.current;
+    const elapsed = (Date.now() - trackStartTimeRef.current) / 1000;
+
+    if (prev && user && elapsed >= 30) {
+      supabase.from('listening_history').insert({
+        user_id:       user.id,
+        track_id:      prev.id,
+        track_name:    prev.name,
+        track_artists: prev.artists,
+        played_at:     new Date().toISOString(),
+        duration_seconds: Math.floor(elapsed),
+      }).then(() => {}).catch(() => {});
+    }
+
+    prevTrackRef.current     = currentTrack;
+    trackStartTimeRef.current = Date.now();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id]);
+
 
   // Fetch userdata whenever user changes
   useEffect(() => {
@@ -314,6 +342,9 @@ function App() {
             onRefreshPlaylists={fetchUserPlaylists}
           />
         );
+      case 'discover':
+        return <DiscoverPage userId={user ? user.id : null} />;
+
       case 'playlists':
         return (
           <PlaylistsPanel
@@ -322,6 +353,7 @@ function App() {
             onOpenAuth={() => setAuthModalOpen(true)}
           />
         );
+
       case 'artists':
         return (
           <ArtistsPanel
@@ -372,12 +404,14 @@ function App() {
 
   const gradients: Record<string, string> = {
     search:    'linear-gradient(180deg, rgba(28,65,46,0.9) 0%, rgba(18,18,18,0) 100%)',
+    discover:  'linear-gradient(180deg, rgba(20,40,80,0.9) 0%, rgba(18,18,18,0) 100%)',
     playlists: 'linear-gradient(180deg, rgba(74,40,80,0.8) 0%, rgba(18,18,18,0) 100%)',
     artists:   'linear-gradient(180deg, rgba(30,70,80,0.8) 0%, rgba(18,18,18,0) 100%)',
     queue:     'linear-gradient(180deg, rgba(30,50,90,0.8) 0%, rgba(18,18,18,0) 100%)',
     history:   'linear-gradient(180deg, rgba(70,40,80,0.8) 0%, rgba(18,18,18,0) 100%)',
     settings:  'linear-gradient(180deg, rgba(40,40,40,0.8) 0%, rgba(18,18,18,0) 100%)',
   };
+
 
   return (
     <PlayerContext.Provider value={{ playTrack, currentTrack, isPlaying }}>

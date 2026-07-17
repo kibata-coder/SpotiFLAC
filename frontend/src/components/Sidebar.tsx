@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, ListMusic, History, Settings, Library, Music2, FolderHeart, Users, LogIn, LogOut, User } from 'lucide-react';
+import { Search, ListMusic, History, Settings, Library, Music2, FolderHeart, Users, LogIn, LogOut, User, Compass } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface SidebarProps {
@@ -12,12 +12,13 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, user, onOpenAuth, onLogout }) => {
   const navItems = [
-    { id: 'search', label: 'Search Track', icon: Search },
-    { id: 'playlists', label: 'Playlists', icon: FolderHeart },
-    { id: 'artists', label: 'Followed Artists', icon: Users },
-    { id: 'queue', label: 'Offline Library', icon: ListMusic },
-    { id: 'history', label: 'History', icon: History },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'search',   label: 'Search Track',     icon: Search },
+    { id: 'discover', label: 'Discover',          icon: Compass },
+    { id: 'playlists',label: 'Playlists',         icon: FolderHeart },
+    { id: 'artists',  label: 'Followed Artists',  icon: Users },
+    { id: 'queue',    label: 'Offline Library',   icon: ListMusic },
+    { id: 'history',  label: 'History',           icon: History },
+    { id: 'settings', label: 'Settings',          icon: Settings },
   ];
 
   return (
