@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext } from 'react';
+import { useState, useEffect, createContext, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
 import { LibraryPanel } from './components/LibraryPanel';
@@ -6,6 +6,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { AuthModal } from './components/AuthModal';
 import { PlaylistsPanel } from './components/PlaylistsPanel';
 import { ArtistsPanel } from './components/ArtistsPanel';
+import { QueuePanel } from './components/QueuePanel';
 import type { SearchResult } from './lib/api';
 import { getStreamUrl } from './lib/api';
 import { getTrackBlob } from './lib/offline';
@@ -41,6 +42,12 @@ function App() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [queue, setQueue] = useState<SearchResult[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [showQueuePanel, setShowQueuePanel] = useState(false);
+  const [initialSeek, setInitialSeek] = useState<number | undefined>(undefined);
+
+  // Shuffle: track which indices have been played to avoid repeats
+  const shuffleHistoryRef = useRef<Set<number>>(new Set());
 
   // Check auth state on mount
   useEffect(() => {
@@ -60,11 +67,62 @@ function App() {
     if (user) {
       fetchUserPlaylists();
       fetchUserFollowedArtists();
+      restorePlaybackState(user.id);
     } else {
       setPlaylists([]);
       setFollowedArtists(new Set());
     }
   }, [user]);
+
+  // ── Cross-device sync: restore ───────────────────────────────────
+  const restorePlaybackState = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('playback_state')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error || !data) return;
+
+      const track: SearchResult = {
+        id: data.track_id,
+        name: data.track_name,
+        artists: data.track_artists,
+        cover: data.track_cover,
+        album: data.track_album,
+      };
+
+      // Restore queue if available
+      let restoredQueue: SearchResult[] = [];
+      let restoredIndex = 0;
+      if (data.queue_data) {
+        try {
+          restoredQueue = JSON.parse(data.queue_data);
+          restoredIndex = data.queue_index ?? 0;
+        } catch {}
+      }
+
+      if (restoredQueue.length === 0) {
+        restoredQueue = [track];
+        restoredIndex = 0;
+      }
+
+      const blob = await getTrackBlob(track.id);
+      const url = blob ? URL.createObjectURL(blob) : getStreamUrl(track.id);
+
+      setCurrentTrack(track);
+      setStreamUrl(url);
+      setQueue(restoredQueue);
+      setCurrentIndex(restoredIndex);
+      setInitialSeek(data.position_seconds || 0);
+      setIsPlaying(false); // don't autoplay on restore
+
+      toast.success(`▶ Resume: ${track.name}`, { duration: 4000 });
+    } catch (err) {
+      console.error('Failed to restore playback state:', err);
+    }
+  };
 
   const fetchUserPlaylists = async () => {
     try {
@@ -101,7 +159,7 @@ function App() {
     }
   };
 
-  const playTrack = (
+  const playTrack = useCallback((
     track: SearchResult,
     url: string,
     trackQueue?: SearchResult[],
@@ -114,34 +172,61 @@ function App() {
     setCurrentTrack(track);
     setStreamUrl(url);
     setIsPlaying(true);
+    setInitialSeek(undefined);
     if (trackQueue) {
       setQueue(trackQueue);
       setCurrentIndex(index ?? 0);
+      shuffleHistoryRef.current = new Set([index ?? 0]);
     }
-  };
+  }, [currentTrack]);
 
-  const handlePrev = async (forceWrap?: boolean) => {
+  // ── Shuffle: pick random unplayed index ──────────────────────────
+  const pickShuffleIndex = useCallback((currentIdx: number, total: number): number => {
+    const history = shuffleHistoryRef.current;
+    // If all played, reset
+    if (history.size >= total) {
+      shuffleHistoryRef.current = new Set([currentIdx]);
+    }
+    const candidates = Array.from({ length: total }, (_, i) => i).filter(
+      i => i !== currentIdx && !history.has(i)
+    );
+    if (candidates.length === 0) return (currentIdx + 1) % total;
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    shuffleHistoryRef.current.add(picked);
+    return picked;
+  }, []);
+
+  const handlePrev = useCallback(async (forceWrap?: boolean) => {
     let idx = currentIndex - 1;
+    if (isShuffle) {
+      idx = Math.max(0, currentIndex - 1); // shuffle goes back linearly
+    }
     if (idx < 0) {
       if (forceWrap && queue.length > 0) {
         idx = queue.length - 1;
       } else {
+        // Seek to start of current track instead
         return;
       }
     }
     const t = queue[idx];
     if (!t) return;
-    // Check offline blob first
     const blob = await getTrackBlob(t.id);
     const url = blob ? URL.createObjectURL(blob) : getStreamUrl(t.id);
     setCurrentTrack(t);
     setStreamUrl(url);
     setIsPlaying(true);
     setCurrentIndex(idx);
-  };
+    setInitialSeek(undefined);
+  }, [currentIndex, queue, isShuffle]);
 
-  const handleNext = async (forceWrap?: boolean) => {
-    let idx = currentIndex + 1;
+  const handleNext = useCallback(async (forceWrap?: boolean) => {
+    let idx: number;
+    if (isShuffle) {
+      idx = pickShuffleIndex(currentIndex, queue.length);
+    } else {
+      idx = currentIndex + 1;
+    }
     if (idx >= queue.length) {
       if (forceWrap && queue.length > 0) {
         idx = 0;
@@ -151,14 +236,66 @@ function App() {
     }
     const t = queue[idx];
     if (!t) return;
-    // Check offline blob first
     const blob = await getTrackBlob(t.id);
     const url = blob ? URL.createObjectURL(blob) : getStreamUrl(t.id);
     setCurrentTrack(t);
     setStreamUrl(url);
     setIsPlaying(true);
     setCurrentIndex(idx);
-  };
+    setInitialSeek(undefined);
+  }, [currentIndex, queue, isShuffle, pickShuffleIndex]);
+
+  // ── Queue management ─────────────────────────────────────────────
+  const handleJumpToQueue = useCallback(async (index: number) => {
+    const t = queue[index];
+    if (!t) return;
+    const blob = await getTrackBlob(t.id);
+    const url = blob ? URL.createObjectURL(blob) : getStreamUrl(t.id);
+    setCurrentTrack(t);
+    setStreamUrl(url);
+    setIsPlaying(true);
+    setCurrentIndex(index);
+    setInitialSeek(undefined);
+  }, [queue]);
+
+  const handleRemoveFromQueue = useCallback((index: number) => {
+    setQueue(prev => {
+      const next = [...prev];
+      next.splice(index, 1);
+      // Adjust currentIndex
+      if (index < currentIndex) {
+        setCurrentIndex(c => c - 1);
+      } else if (index === currentIndex && next.length > 0) {
+        const newIdx = Math.min(index, next.length - 1);
+        setCurrentIndex(newIdx);
+        const t = next[newIdx];
+        if (t) {
+          getTrackBlob(t.id).then(blob => {
+            setStreamUrl(blob ? URL.createObjectURL(blob) : getStreamUrl(t.id));
+            setCurrentTrack(t);
+          });
+        }
+      }
+      return next;
+    });
+  }, [currentIndex]);
+
+  const handleReorderQueue = useCallback((fromIndex: number, toIndex: number) => {
+    setQueue(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      // Update currentIndex to follow the current track
+      if (fromIndex === currentIndex) {
+        setCurrentIndex(toIndex);
+      } else if (fromIndex < currentIndex && toIndex >= currentIndex) {
+        setCurrentIndex(c => c - 1);
+      } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
+        setCurrentIndex(c => c + 1);
+      }
+      return next;
+    });
+  }, [currentIndex]);
 
   const handleTabChange = (tab: string) => {
     setCurrentTab(tab);
@@ -322,9 +459,7 @@ function App() {
           />
 
           {/* ── Mobile top bar ── */}
-          <div
-            className="flex lg:hidden items-center gap-3 px-4 pt-4 pb-2 relative z-10"
-          >
+          <div className="flex lg:hidden items-center gap-3 px-4 pt-4 pb-2 relative z-10">
             <button
               onClick={() => setSidebarOpen(true)}
               className="w-9 h-9 rounded-lg flex items-center justify-center"
@@ -362,6 +497,20 @@ function App() {
             </div>
           </div>
         </main>
+
+        {/* ── Queue Panel (slide in from right) ── */}
+        {showQueuePanel && currentTrack && (
+          <div className="hidden lg:block w-[320px] shrink-0 h-full">
+            <QueuePanel
+              queue={queue}
+              currentIndex={currentIndex}
+              onClose={() => setShowQueuePanel(false)}
+              onJumpTo={handleJumpToQueue}
+              onRemove={handleRemoveFromQueue}
+              onReorder={handleReorderQueue}
+            />
+          </div>
+        )}
       </div>
 
       <AudioPlayer
@@ -373,6 +522,12 @@ function App() {
         currentIndex={currentIndex}
         onPrev={handlePrev}
         onNext={handleNext}
+        isShuffle={isShuffle}
+        onShuffleChange={setIsShuffle}
+        onQueuePanelToggle={() => setShowQueuePanel(p => !p)}
+        showQueuePanel={showQueuePanel}
+        userId={user?.id}
+        initialSeek={initialSeek}
         onError={async () => {
           console.warn("Playback failed. Checking offline storage...");
           if (currentTrack) {

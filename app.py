@@ -141,27 +141,132 @@ def search():
     if not ytmusic:
         return jsonify({"error": "YTMusic not configured"}), 500
 
+    # Map frontend search_type → YTMusic filter + expected resultType
+    type_map = {
+        "track":    ("songs",     "song"),
+        "album":    ("albums",    "album"),
+        "artist":   ("artists",   "artist"),
+        "playlist": ("playlists", "playlist"),
+    }
+    yt_filter, expected_result_type = type_map.get(search_type, ("songs", "song"))
+
     try:
-        yt_filter = "songs" if search_type == "track" else "albums"
         results = ytmusic.search(query=query, filter=yt_filter, limit=limit)
         tracks  = []
-        for track in results:
-            if search_type == "track" and track.get("resultType") != "song":
+        for item in results:
+            if item.get("resultType") != expected_result_type:
                 continue
-            if search_type == "album" and track.get("resultType") != "album":
-                continue
-            thumbnails  = track.get("thumbnails", [])
-            image_url   = thumbnails[-1]["url"] if thumbnails else ""
-            artists_str = ", ".join(a["name"] for a in track.get("artists", [])) or "Unknown Artist"
-            album       = track.get("album")
-            tracks.append({
-                "id":      track["videoId"],
-                "name":    track["title"],
-                "artists": artists_str,
-                "album":   album["name"] if album else "Unknown Album",
-                "cover":   image_url,
-            })
+            thumbnails = item.get("thumbnails", [])
+            image_url  = thumbnails[-1]["url"] if thumbnails else ""
+
+            if search_type == "track":
+                artists_str = ", ".join(a["name"] for a in item.get("artists", [])) or "Unknown Artist"
+                album = item.get("album")
+                tracks.append({
+                    "id":      item.get("videoId", ""),
+                    "name":    item.get("title", ""),
+                    "artists": artists_str,
+                    "album":   album["name"] if album else "Unknown Album",
+                    "cover":   image_url,
+                    "type":    "track",
+                })
+            elif search_type == "album":
+                artists_str = ", ".join(a["name"] for a in item.get("artists", [])) or "Unknown Artist"
+                tracks.append({
+                    "id":      item.get("browseId", ""),
+                    "name":    item.get("title", ""),
+                    "artists": artists_str,
+                    "album":   item.get("title", ""),
+                    "cover":   image_url,
+                    "type":    "album",
+                    "year":    item.get("year", ""),
+                })
+            elif search_type == "artist":
+                tracks.append({
+                    "id":      item.get("browseId", ""),
+                    "name":    item.get("artist", item.get("title", "")),
+                    "artists": item.get("artist", item.get("title", "")),
+                    "album":   "",
+                    "cover":   image_url,
+                    "type":    "artist",
+                })
+            elif search_type == "playlist":
+                tracks.append({
+                    "id":      item.get("browseId", ""),
+                    "name":    item.get("title", ""),
+                    "artists": item.get("author", ""),
+                    "album":   f"{item.get('itemCount', '?')} songs",
+                    "cover":   image_url,
+                    "type":    "playlist",
+                })
+
         return jsonify(tracks)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/radio", methods=["GET"])
+def radio():
+    """Get a radio / watch playlist seeded from a video_id."""
+    video_id = request.args.get("video_id")
+    if not video_id:
+        return jsonify({"error": "Missing video_id"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        watch = ytmusic.get_watch_playlist(videoId=video_id, radio=True, limit=25)
+        tracks = []
+        for t in watch.get("tracks", []):
+            thumbnails  = t.get("thumbnails", [])
+            image_url   = thumbnails[-1]["url"] if thumbnails else ""
+            artists_str = ", ".join(a["name"] for a in t.get("artists", [])) or "Unknown Artist"
+            album       = t.get("album")
+            vid         = t.get("videoId")
+            if not vid:
+                continue
+            tracks.append({
+                "id":      vid,
+                "name":    t.get("title", ""),
+                "artists": artists_str,
+                "album":   album["name"] if album else "",
+                "cover":   image_url,
+                "type":    "track",
+            })
+        return jsonify({"tracks": tracks})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/artist-top-tracks", methods=["GET"])
+def artist_top_tracks():
+    """Get top tracks for an artist by channel_id."""
+    channel_id = request.args.get("channel_id")
+    if not channel_id:
+        return jsonify({"error": "Missing channel_id"}), 400
+    if not ytmusic:
+        return jsonify({"error": "YTMusic not configured"}), 500
+    try:
+        artist_data = ytmusic.get_artist(channel_id)
+        songs_section = artist_data.get("songs", {})
+        results = songs_section.get("results", [])
+        tracks = []
+        for t in results:
+            thumbnails  = t.get("thumbnails", [])
+            image_url   = thumbnails[-1]["url"] if thumbnails else ""
+            artists_str = ", ".join(a["name"] for a in t.get("artists", [])) or "Unknown Artist"
+            album       = t.get("album")
+            vid         = t.get("videoId")
+            if not vid:
+                continue
+            tracks.append({
+                "id":      vid,
+                "name":    t.get("title", ""),
+                "artists": artists_str,
+                "album":   album["name"] if album else "",
+                "cover":   image_url,
+                "type":    "track",
+            })
+        return jsonify({"tracks": tracks, "artist_name": artist_data.get("name", "")})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

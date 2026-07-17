@@ -1047,3 +1047,159 @@
   from { transform: scaleY(0.4); }
   to   { transform: scaleY(1); }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ICON BUTTON WITH LABEL (speed, lyrics, queue, etc.)
+═══════════════════════════════════════════════════════════ */
+.sp-icon-btn-labeled {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SPEED / SLEEP MENU POPUP
+═══════════════════════════════════════════════════════════ */
+.sp-speed-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 100px;
+  pointer-events: none;
+}
+
+.sp-speed-menu-inner {
+  pointer-events: all;
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 8px;
+  min-width: 180px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+  animation: fadeInScale 0.15s ease both;
+}
+
+.sp-speed-menu-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sp-subdued);
+  padding: 6px 12px 8px;
+  margin: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 4px;
+}
+
+.sp-speed-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+.sp-speed-option:hover { background: rgba(255,255,255,0.08); }
+.sp-speed-option.active {
+  color: var(--sp-green);
+  background: rgba(29,185,84,0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   QUEUE PANEL
+═══════════════════════════════════════════════════════════ */
+.sp-queue-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--sp-surface);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.sp-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  flex-shrink: 0;
+}
+
+.sp-queue-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+
+.sp-queue-close {
+  background: transparent;
+  border: none;
+  color: var(--sp-subdued);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: flex;
+  transition: color 0.1s, background 0.1s;
+}
+.sp-queue-close:hover { color: #fff; background: rgba(255,255,255,0.08); }
+
+.sp-queue-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px;
+}
+
+.sp-queue-section {
+  margin-bottom: 16px;
+}
+
+.sp-queue-section-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sp-subdued);
+  padding: 4px 8px 8px;
+  margin: 0;
+}
+
+.sp-queue-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background 0.1s ease;
+  cursor: default;
+  position: relative;
+}
+.sp-queue-row:hover { background: rgba(255,255,255,0.06); }
+.sp-queue-row--active { background: rgba(29,185,84,0.08) !important; }
+.sp-queue-row--active:hover { background: rgba(29,185,84,0.12) !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   CROSSFADE INDICATOR (subtle glow on player bar)
+═══════════════════════════════════════════════════════════ */
+.sp-player-bar.crossfading::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--sp-green), #1ed760);
+  animation: shimmer 1.5s linear infinite;
+  background-size: 200% 100%;
+}
+

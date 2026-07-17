@@ -1,12 +1,14 @@
 // Empty string = use relative URLs → hits Cloudflare Pages Function proxy → Railway
-// This means the phone never touches railway.app directly (avoids WiFi blocks)
 const API_BASE_URL = "";
+
 export interface SearchResult {
   id: string;
   name: string;
   artists: string;
   album?: string;
   cover?: string;
+  type?: 'track' | 'album' | 'artist' | 'playlist';
+  year?: string;
 }
 
 export async function searchSpotify(query: string, searchType: string = 'track'): Promise<SearchResult[]> {
@@ -23,9 +25,7 @@ export async function searchSpotify(query: string, searchType: string = 'track')
 
   if (!response.ok) {
     let errorText = '';
-    try {
-      errorText = await response.text();
-    } catch (e) {}
+    try { errorText = await response.text(); } catch (e) {}
     throw new Error(`Search failed: HTTP ${response.status} ${response.statusText} - ${errorText}`);
   }
 
@@ -68,4 +68,21 @@ export async function getLyrics(spotifyId: string): Promise<string> {
   
   const data = await response.json();
   return data.lyrics || "";
+}
+
+export async function getRadio(videoId: string): Promise<SearchResult[]> {
+  const response = await fetch(`${API_BASE_URL}/api/radio?video_id=${encodeURIComponent(videoId)}`);
+  if (!response.ok) {
+    throw new Error("Failed to load radio");
+  }
+  const data = await response.json();
+  return data.tracks || [];
+}
+
+export async function getArtistTopTracks(channelId: string): Promise<{ tracks: SearchResult[]; artist_name: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/artist-top-tracks?channel_id=${encodeURIComponent(channelId)}`);
+  if (!response.ok) {
+    throw new Error("Failed to load artist tracks");
+  }
+  return response.json();
 }
