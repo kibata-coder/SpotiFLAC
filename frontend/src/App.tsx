@@ -102,6 +102,39 @@ function App() {
     }
   }, [user]);
 
+  // ── Handle Collaborative Playlist Invites ──────────────────────────
+  useEffect(() => {
+    const handleInvite = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const inviteCode = params.get('join_playlist');
+      if (inviteCode && user) {
+        // Clear param from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        try {
+          const { data, error } = await supabase.from('playlists').select('id, name').eq('invite_code', inviteCode).maybeSingle();
+          if (error || !data) {
+            toast.error('Invalid or expired invite link');
+            return;
+          }
+          // Join playlist
+          const { error: joinError } = await supabase.from('playlist_collaborators').insert({ playlist_id: data.id, user_id: user.id });
+          if (joinError && joinError.code !== '23505') { // Ignore unique violation if already joined
+            throw joinError;
+          }
+          toast.success(`Joined collaborative playlist: ${data.name}`);
+          fetchUserPlaylists();
+          setCurrentTab('playlists');
+        } catch (err) {
+          toast.error('Failed to join playlist');
+        }
+      } else if (inviteCode && !user) {
+        toast.error('Please sign in to join this playlist', { duration: 5000 });
+        setAuthModalOpen(true);
+      }
+    };
+    handleInvite();
+  }, [user]);
+
   // ── Cross-device sync: restore ───────────────────────────────────
   const restorePlaybackState = async (userId: string) => {
     try {
@@ -363,7 +396,7 @@ function App() {
           />
         );
       case 'queue':
-        return <LibraryPanel />;
+        return <LibraryPanel userId={user ? user.id : null} />;
       case 'history':
         return (
           <div className="flex flex-col items-center justify-center h-full gap-4 py-20">

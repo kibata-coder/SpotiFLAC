@@ -10,6 +10,7 @@ import { PlayerContext } from '../App';
 import { saveDownloadedTrack } from '../lib/offline';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { LikeButton } from './LikeButton';
 
 interface SearchPanelProps {
   userId: string | null;
@@ -369,9 +370,29 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({
                   </span>
                 )}
 
-                {/* Album: label */}
-                {item.type === 'album' && item.year && (
-                  <span className="text-xs" style={{ color: 'var(--sp-muted)' }}>{item.year}</span>
+                {/* Album: label + like */}
+                {item.type === 'album' && (
+                  <>
+                    {item.year && <span className="text-xs mr-2" style={{ color: 'var(--sp-muted)' }}>{item.year}</span>}
+                    <LikeButton 
+                      userId={userId} 
+                      itemType="album" 
+                      itemId={item.id} 
+                      itemName={item.name} 
+                      itemCover={item.cover || ''} 
+                    />
+                  </>
+                )}
+                
+                {/* Artist: like button */}
+                {item.type === 'artist' && (
+                  <LikeButton 
+                    userId={userId} 
+                    itemType="artist" 
+                    itemId={item.id} 
+                    itemName={item.name} 
+                    itemCover={item.cover || ''} 
+                  />
                 )}
 
                 {/* Track-only actions */}
