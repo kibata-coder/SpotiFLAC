@@ -1,15 +1,30 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import {
   Search as SearchIcon, Download, Loader2, Music,
-  Disc3, Wand2, Play, Pause,
+  Disc3, Wand2, Play, Pause, FolderHeart, Plus
 } from 'lucide-react';
 import { searchSpotify, downloadTrackWeb } from '../lib/api';
 import type { SearchResult } from '../lib/api';
 import { PlayerContext } from '../App';
 import { saveDownloadedTrack } from '../lib/offline';
+import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
-export const SearchPanel: React.FC = () => {
+interface SearchPanelProps {
+  userId: string | null;
+  playlists: Array<{ id: string; name: string }>;
+  followedArtists: Set<string>;
+  onRefreshFollowedArtists: () => void;
+  onRefreshPlaylists: () => void;
+}
+
+export const SearchPanel: React.FC<SearchPanelProps> = ({
+  userId,
+  playlists,
+  followedArtists,
+  onRefreshFollowedArtists,
+  onRefreshPlaylists
+}) => {
   const { playTrack, currentTrack, isPlaying } = useContext(PlayerContext);
   const [query, setQuery] = useState('');
   const [searchType, setSearchType] = useState('track');
@@ -18,6 +33,7 @@ export const SearchPanel: React.FC = () => {
   const [downloadingIds, setDownloadingIds] = useState<Record<string, boolean>>({});
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
   const [hasSearched, setHasSearched] = useState(false);
+  const [openPlaylistMenuId, setOpenPlaylistMenuId] = useState<string | null>(null);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +49,59 @@ export const SearchPanel: React.FC = () => {
       setResults([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleFollowArtist = async (artistName: string) => {
+    if (!userId) return;
+
+    try {
+      if (followedArtists.has(artistName)) {
+        const { error } = await supabase
+          .from('followed_artists')
+          .delete()
+          .eq('artist_name', artistName);
+
+        if (error) throw error;
+        toast.success(`Unfollowed ${artistName}`);
+      } else {
+        const { error } = await supabase
+          .from('followed_artists')
+          .insert([{ artist_name: artistName, user_id: userId }]);
+
+        if (error) throw error;
+        toast.success(`Following ${artistName}`);
+      }
+      onRefreshFollowedArtists();
+    } catch (err: any) {
+      toast.error('Operation failed. Please try again.');
+    }
+  };
+
+  const handleAddToPlaylist = async (playlistId: string, track: SearchResult) => {
+    setOpenPlaylistMenuId(null);
+    try {
+      const { error } = await supabase
+        .from('playlist_tracks')
+        .insert([{
+          playlist_id: playlistId,
+          track_id: track.id,
+          track_name: track.name,
+          track_artists: track.artists,
+          track_cover: track.cover || '',
+          track_album: track.album || ''
+        }]);
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.info('Song is already in this playlist!');
+          return;
+        }
+        throw error;
+      }
+      toast.success(`Added "${track.name}" to playlist!`);
+    } catch (err: any) {
+      toast.error('Failed to add track to playlist');
     }
   };
 
@@ -247,7 +316,46 @@ export const SearchPanel: React.FC = () => {
               </div>
 
               {/* Actions — ALWAYS VISIBLE */}
+              {/* Actions — ALWAYS VISIBLE */}
               <div className="flex items-center justify-end gap-1.5">
+                {/* Follow Artist Button */}
+                {userId && (
+                  <button
+                    onClick={() => handleToggleFollowArtist(item.artists)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800/60 transition-all shrink-0"
+                    title={followedArtists.has(item.artists) ? "Unfollow Artist" : "Follow Artist"}
+                  >
+                    <FolderHeart className={`w-3.5 h-3.5 ${followedArtists.has(item.artists) ? 'fill-emerald-500 text-emerald-500' : ''}`} />
+                  </button>
+                )}
+
+                {/* Add to Playlist Selector Dropdown */}
+                {userId && playlists.length > 0 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setOpenPlaylistMenuId(openPlaylistMenuId === item.id ? null : item.id)}
+                      className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800/60 transition-all shrink-0"
+                      title="Add to Playlist"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    {openPlaylistMenuId === item.id && (
+                      <div className="absolute right-0 bottom-full mb-1 z-30 w-48 rounded-lg bg-zinc-900 border border-zinc-800 p-1 flex flex-col shadow-2xl animate-in fade-in duration-100">
+                        <p className="text-[10px] uppercase font-bold text-zinc-500 px-2 py-1.5 tracking-wider border-b border-zinc-800">Add to Playlist</p>
+                        {playlists.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => handleAddToPlaylist(p.id, item)}
+                            className="text-left text-xs font-semibold text-white hover:text-black hover:bg-emerald-500 px-2 py-2 rounded transition-colors truncate"
+                          >
+                            {p.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Play/Pause */}
                 <button
                   id={`play-${item.id}`}

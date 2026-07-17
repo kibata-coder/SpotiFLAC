@@ -1,11 +1,17 @@
-import { useState, createContext } from 'react';
+import { useState, useEffect, createContext } from 'react';
 import Sidebar from './components/Sidebar';
 import { SearchPanel } from './components/SearchPanel';
 import { LibraryPanel } from './components/LibraryPanel';
 import { AudioPlayer } from './components/AudioPlayer';
+import { AuthModal } from './components/AuthModal';
+import { PlaylistsPanel } from './components/PlaylistsPanel';
+import { ArtistsPanel } from './components/ArtistsPanel';
 import type { SearchResult } from './lib/api';
 import { getStreamUrl } from './lib/api';
 import { getTrackBlob } from './lib/offline';
+import { supabase } from './lib/supabase';
+import type { User } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 export interface PlayerContextType {
   playTrack: (track: SearchResult, streamUrl: string, queue?: SearchResult[], index?: number) => void;
@@ -23,12 +29,77 @@ function App() {
   const [currentTab, setCurrentTab] = useState('search');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Supabase Auth and User States
+  const [user, setUser] = useState<User | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [playlists, setPlaylists] = useState<Array<{ id: string; name: string }>>([]);
+  const [followedArtists, setFollowedArtists] = useState<Set<string>>(new Set());
+
   // Audio Player State
   const [currentTrack, setCurrentTrack] = useState<SearchResult | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [queue, setQueue] = useState<SearchResult[]>([]);
   const [currentIndex, setCurrentIndex] = useState(-1);
+
+  // Check auth state on mount
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Fetch userdata whenever user changes
+  useEffect(() => {
+    if (user) {
+      fetchUserPlaylists();
+      fetchUserFollowedArtists();
+    } else {
+      setPlaylists([]);
+      setFollowedArtists(new Set());
+    }
+  }, [user]);
+
+  const fetchUserPlaylists = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('playlists')
+        .select('id, name');
+      if (error) throw error;
+      setPlaylists(data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchUserFollowedArtists = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('followed_artists')
+        .select('artist_name');
+      if (error) throw error;
+      setFollowedArtists(new Set((data || []).map(a => a.artist_name)));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      toast.success('Logged out successfully');
+      setCurrentTab('search');
+    } catch (err: any) {
+      toast.error(err.message || 'Logout failed');
+    }
+  };
 
   const playTrack = (
     track: SearchResult,
@@ -97,7 +168,31 @@ function App() {
   const renderContent = () => {
     switch (currentTab) {
       case 'search':
-        return <SearchPanel />;
+        return (
+          <SearchPanel
+            userId={user ? user.id : null}
+            playlists={playlists}
+            followedArtists={followedArtists}
+            onRefreshFollowedArtists={fetchUserFollowedArtists}
+            onRefreshPlaylists={fetchUserPlaylists}
+          />
+        );
+      case 'playlists':
+        return (
+          <PlaylistsPanel
+            userId={user ? user.id : null}
+            onPlayTrack={playTrack}
+            onOpenAuth={() => setAuthModalOpen(true)}
+          />
+        );
+      case 'artists':
+        return (
+          <ArtistsPanel
+            userId={user ? user.id : null}
+            onPlayTrack={playTrack}
+            onOpenAuth={() => setAuthModalOpen(true)}
+          />
+        );
       case 'queue':
         return <LibraryPanel />;
       case 'history':
@@ -126,15 +221,25 @@ function App() {
           </div>
         );
       default:
-        return <SearchPanel />;
+        return (
+          <SearchPanel
+            userId={user ? user.id : null}
+            playlists={playlists}
+            followedArtists={followedArtists}
+            onRefreshFollowedArtists={fetchUserFollowedArtists}
+            onRefreshPlaylists={fetchUserPlaylists}
+          />
+        );
     }
   };
 
   const gradients: Record<string, string> = {
-    search:   'linear-gradient(180deg, rgba(28,65,46,0.9) 0%, rgba(18,18,18,0) 100%)',
-    queue:    'linear-gradient(180deg, rgba(30,50,90,0.8) 0%, rgba(18,18,18,0) 100%)',
-    history:  'linear-gradient(180deg, rgba(70,40,80,0.8) 0%, rgba(18,18,18,0) 100%)',
-    settings: 'linear-gradient(180deg, rgba(40,40,40,0.8) 0%, rgba(18,18,18,0) 100%)',
+    search:    'linear-gradient(180deg, rgba(28,65,46,0.9) 0%, rgba(18,18,18,0) 100%)',
+    playlists: 'linear-gradient(180deg, rgba(74,40,80,0.8) 0%, rgba(18,18,18,0) 100%)',
+    artists:   'linear-gradient(180deg, rgba(30,70,80,0.8) 0%, rgba(18,18,18,0) 100%)',
+    queue:     'linear-gradient(180deg, rgba(30,50,90,0.8) 0%, rgba(18,18,18,0) 100%)',
+    history:   'linear-gradient(180deg, rgba(70,40,80,0.8) 0%, rgba(18,18,18,0) 100%)',
+    settings:  'linear-gradient(180deg, rgba(40,40,40,0.8) 0%, rgba(18,18,18,0) 100%)',
   };
 
   return (
@@ -161,7 +266,13 @@ function App() {
       >
         {/* ── Desktop sidebar (hidden on mobile) ── */}
         <div className="hidden lg:flex w-[280px] shrink-0 h-full">
-          <Sidebar currentTab={currentTab} onTabChange={handleTabChange} />
+          <Sidebar
+            currentTab={currentTab}
+            onTabChange={handleTabChange}
+            user={user}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onLogout={handleLogout}
+          />
         </div>
 
         {/* ── Mobile sidebar (slide-in drawer) ── */}
@@ -174,7 +285,13 @@ function App() {
             boxSizing: 'border-box',
           }}
         >
-          <Sidebar currentTab={currentTab} onTabChange={handleTabChange} />
+          <Sidebar
+            currentTab={currentTab}
+            onTabChange={handleTabChange}
+            user={user}
+            onOpenAuth={() => setAuthModalOpen(true)}
+            onLogout={handleLogout}
+          />
         </div>
 
         {/* ── Main content ── */}
@@ -266,6 +383,16 @@ function App() {
               setStreamUrl(getStreamUrl(currentTrack.id));
             }
           }
+        }}
+      />
+
+      {/* Auth Modal Overlay */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={() => {
+          fetchUserPlaylists();
+          fetchUserFollowedArtists();
         }}
       />
     </PlayerContext.Provider>

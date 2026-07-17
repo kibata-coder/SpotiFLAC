@@ -1,15 +1,21 @@
 import React from 'react';
-import { Search, ListMusic, History, Settings, Library, Music2 } from 'lucide-react';
+import { Search, ListMusic, History, Settings, Library, Music2, FolderHeart, Users, LogIn, LogOut, User } from 'lucide-react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface SidebarProps {
   currentTab: string;
   onTabChange: (tab: string) => void;
+  user: SupabaseUser | null;
+  onOpenAuth: () => void;
+  onLogout: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, user, onOpenAuth, onLogout }) => {
   const navItems = [
     { id: 'search', label: 'Search Track', icon: Search },
-    { id: 'queue', label: 'Your Library', icon: ListMusic },
+    { id: 'playlists', label: 'Playlists', icon: FolderHeart },
+    { id: 'artists', label: 'Followed Artists', icon: Users },
+    { id: 'queue', label: 'Offline Library', icon: ListMusic },
     { id: 'history', label: 'History', icon: History },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -92,6 +98,37 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
             );
           })}
         </nav>
+
+        {/* User Profile Section at bottom of Navigation */}
+        <div className="px-2 pt-2 pb-2 border-t border-zinc-800/80">
+          {user ? (
+            <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/40 text-sm">
+              <div className="flex items-center gap-2 truncate pr-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold uppercase shrink-0">
+                  {user.user_metadata?.display_name?.charAt(0) || user.email?.charAt(0) || <User className="w-4 h-4" />}
+                </div>
+                <span className="text-white font-semibold truncate">
+                  {user.user_metadata?.display_name || user.email?.split('@')[0]}
+                </span>
+              </div>
+              <button
+                onClick={onLogout}
+                className="p-2 text-zinc-400 hover:text-red-400 hover:bg-zinc-800/60 rounded-lg transition-colors shrink-0"
+                title="Log Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-sm transition-colors shadow-lg shadow-emerald-500/5"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Connect Sync Account</span>
+            </button>
+          )}
+        </div>
 
         {/* Footer */}
         <div

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { getDownloadedTracks, getTrackBlob, deleteDownloadedTrack, OfflineTrack } from '../lib/offline';
+import { getDownloadedTracks, getTrackBlob, deleteDownloadedTrack } from '../lib/offline';
+import type { OfflineTrack } from '../lib/offline';
 import { PlayerContext } from '../App';
 import { Play, Pause, Trash2, Library } from 'lucide-react';
 
