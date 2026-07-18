@@ -5,7 +5,7 @@ import {
   Shuffle, Repeat, Repeat1,
   Heart, Download, Loader2,
   Mic2, Maximize2, ListMusic,
-  ChevronDown, Gauge, Timer, Radio,
+  ChevronDown, Gauge, Timer, Radio, SlidersHorizontal
 } from 'lucide-react';
 import type { SearchResult } from '../lib/api';
 import { downloadTrackWeb, getLyrics, getStreamUrl, getRadio } from '../lib/api';
