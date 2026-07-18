@@ -91,6 +91,7 @@ def download_audio(video_id: str, quality: str = "320"):
         "outtmpl":      os.path.join(temp_dir, f"{file_id}.%(ext)s"),
         "quiet":        True,
         "no_warnings":  True,
+        "extractor_args": {"youtube": ["player_client=android,web"]},
         **({
             "cookiefile": COOKIES_PATH
         } if os.path.exists(COOKIES_PATH) else {}),
