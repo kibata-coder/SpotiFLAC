@@ -71,7 +71,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [downloadedFlac, setDownloadedFlac]   = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [crossfadeSecs, setCrossfadeSecs] = useState(3); // seconds
   const [isCrossfading, setIsCrossfading] = useState(false);
   const [sleepTimer, setSleepTimer]       = useState<number | null>(null); // remaining ms
@@ -483,17 +482,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setRepeatMode(m => m === 'none' ? 'all' : m === 'all' ? 'one' : 'none');
   };
 
-  const handleDownload = async (format: '192' | 'flac') => {
+  const handleDownload = async () => {
     if (!currentTrack || downloadingFlac) return;
     setDownloadingFlac(true);
-    setShowDownloadMenu(false);
     try {
-      const blob = await downloadTrackWeb(currentTrack.id, format);
+      const blob = await downloadTrackWeb(currentTrack.id, '320');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      // Provide a fallback filename; the browser may override this if the backend sets Content-Disposition
-      a.download = `${currentTrack.name.replace(/[/\\?%*:|"<>]/g, '')} - ${currentTrack.artists.replace(/[/\\?%*:|"<>]/g, '')}.${format === 'flac' ? 'flac' : 'mp3'}`;
+      a.download = `${currentTrack.name.replace(/[/\\?%*:|"<>]/g, '')} - ${currentTrack.artists.replace(/[/\\?%*:|"<>]/g, '')}.mp3`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -629,21 +626,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         </div>
       )}
 
-      {/* Download menu */}
-      {showDownloadMenu && (
-        <div className="sp-speed-menu" onClick={() => setShowDownloadMenu(false)}>
-          <div className="sp-speed-menu-inner" onClick={e => e.stopPropagation()}>
-            <p className="sp-speed-menu-title">Download Format</p>
-            <button className="sp-speed-option" onClick={() => handleDownload('192')}>
-              MP3 (192kbps)
-            </button>
-            <button className="sp-speed-option" onClick={() => handleDownload('flac')}>
-              FLAC (Lossless Container)
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Sleep timer menu */}
       {showSleepMenu && (
         <div className="sp-speed-menu" onClick={() => setShowSleepMenu(false)}>
@@ -766,7 +748,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             <button
               id="player-download-flac"
               className={`sp-flac-btn ${downloadedFlac ? 'done' : ''}`}
-              onClick={() => downloadedFlac ? null : setShowDownloadMenu(s => !s)}
+              onClick={handleDownload}
               disabled={downloadingFlac}
               title="Download audio"
             >

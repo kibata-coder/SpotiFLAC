@@ -75,10 +75,9 @@ def _get_metadata(video_id: str):
 # ─────────────────────────────────────────────────────────────────────────────
 # Downloader: yt_dlp → .m4a  (simple, proven working)
 # ─────────────────────────────────────────────────────────────────────────────
-def download_audio(video_id: str, quality: str = "192"):
+def download_audio(video_id: str, quality: str = "320"):
     """
-    Download best audio and convert to mp3/flac using yt_dlp, or keep original if lossless.
-    quality: "192" | "320" | "flac" | "lossless"
+    Download best audio and convert to mp3 using yt_dlp, or keep original if lossless.
     Returns (filepath, track_title, artist, ext)
     """
     temp_dir    = tempfile.gettempdir()
@@ -97,16 +96,11 @@ def download_audio(video_id: str, quality: str = "192"):
         } if os.path.exists(COOKIES_PATH) else {}),
     }
 
-    if quality == "flac":
-        ydl_opts["postprocessors"] = [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "flac",
-        }]
-    elif quality != "lossless":
+    if quality != "lossless":
         ydl_opts["postprocessors"] = [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
-            "preferredquality": quality if quality in ["192", "320"] else "192",
+            "preferredquality": quality if quality in ["192", "320"] else "320",
         }]
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -115,7 +109,7 @@ def download_audio(video_id: str, quality: str = "192"):
 
     # Locate the actual file yt_dlp wrote
     if not os.path.exists(downloaded):
-        for ext in (".flac", ".mp3", ".m4a", ".webm", ".opus", ".ogg", ".mp4"):
+        for ext in (".mp3", ".m4a", ".webm", ".opus", ".ogg", ".mp4"):
             candidate = os.path.splitext(downloaded)[0] + ext
             if os.path.exists(candidate):
                 downloaded = candidate
