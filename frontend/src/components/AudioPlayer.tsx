@@ -11,6 +11,7 @@ import type { SearchResult } from '../lib/api';
 import { downloadTrackWeb, getLyrics, getStreamUrl, getRadio } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
+import { EqualizerPanel, EQ_PRESETS } from './EqualizerPanel';
 
 interface AudioPlayerProps {
   currentTrack: SearchResult | null;
@@ -76,10 +77,75 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [sleepTimerInterval, setSleepTimerInterval] = useState<ReturnType<typeof setInterval> | null>(null);
   const [isRadioMode, setIsRadioMode]   = useState(false);
+  const [showEqPanel, setShowEqPanel]   = useState(false);
+  const [eqGains, setEqGains]           = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0]);
+  const [isLossless, setIsLossless]     = useState(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const syncSaveRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekPendingRef = useRef<number | null>(null); // for initial seek after metadata loaded
   const crossfadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Web Audio API Refs ──────────────────────────────────────────
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const filtersRef = useRef<BiquadFilterNode[]>([]);
+  const gainNodeRef = useRef<GainNode | null>(null);
+
+  // ── Initialize Web Audio API ────────────────────────────────────
+  useEffect(() => {
+    if (!audioRef.current || audioContextRef.current) return;
+
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = ctx;
+
+      const source = ctx.createMediaElementSource(audioRef.current);
+      sourceNodeRef.current = source;
+
+      const freqs = [32, 64, 125, 250, 500, 1000, 4000, 16000];
+      const filters = freqs.map(freq => {
+        const filter = ctx.createBiquadFilter();
+        filter.type = freq < 100 ? 'lowshelf' : freq > 8000 ? 'highshelf' : 'peaking';
+        filter.frequency.value = freq;
+        filter.Q.value = 1.0;
+        filter.gain.value = 0;
+        return filter;
+      });
+      filtersRef.current = filters;
+
+      const gainNode = ctx.createGain();
+      gainNodeRef.current = gainNode;
+
+      // Connect: source -> filters... -> gain -> destination
+      source.connect(filters[0]);
+      for (let i = 0; i < filters.length - 1; i++) {
+        filters[i].connect(filters[i + 1]);
+      }
+      filters[filters.length - 1].connect(gainNode);
+      gainNode.connect(ctx.destination);
+    } catch (err) {
+      console.warn("Failed to initialize Web Audio API:", err);
+    }
+
+    return () => {
+      // AudioContext shouldn't be closed on unmount if we intend to reuse the element, 
+      // but in this component audio element persists as long as AudioPlayer mounts.
+    };
+  }, []);
+
+  // Resume AudioContext if suspended (often happens before user interaction)
+  useEffect(() => {
+    if (isPlaying && audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+  }, [isPlaying]);
+
+  // Apply EQ Gains to filters
+  useEffect(() => {
+    filtersRef.current.forEach((filter, i) => {
+      if (filter) filter.gain.value = eqGains[i] || 0;
+    });
+  }, [eqGains]);
 
   // ── Liked songs ──────────────────────────────────────────────────
   useEffect(() => {
@@ -150,11 +216,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     const el = audioRef.current;
     if (!el) return;
     if (streamUrl) {
-      el.src = streamUrl;
+      // Append quality if it's our API stream URL
+      let finalUrl = streamUrl;
+      if (isLossless && !streamUrl.startsWith('blob:')) {
+        finalUrl = streamUrl.includes('?') ? `${streamUrl}&quality=lossless` : `${streamUrl}?quality=lossless`;
+      }
+      
+      // Don't reload if url hasn't changed (prevents loops)
+      if (el.src === finalUrl || el.src === window.location.origin + finalUrl) return;
+
+      el.src = finalUrl;
       el.load();
       if (isPlaying) el.play().catch(() => {});
     }
-  }, [streamUrl]);
+  }, [streamUrl, isLossless]);
 
   // ── Media Session API ─────────────────────────────────────────────
   useEffect(() => {
@@ -704,6 +779,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               {sleepTimer !== null && <span className="text-[10px] font-bold leading-none">{formatSleepTimer(sleepTimer)}</span>}
             </button>
 
+            {/* EQ & Quality Panel Toggle */}
+            <button
+              className={`sp-icon-btn sp-icon-btn-labeled ${showEqPanel ? 'active' : ''}`}
+              onClick={() => setShowEqPanel(true)}
+              title="Audio Settings (EQ)"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+
             {/* Volume */}
             <div className="sp-volume-wrap">
               <button className="sp-icon-btn" onClick={toggleMute} title="Mute">
@@ -757,6 +841,19 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           </div>
         </div>
       </div>
+
+      {showEqPanel && (
+        <EqualizerPanel
+          eqGains={eqGains}
+          setEqGain={(index, value) => setEqGains(g => { const n = [...g]; n[index] = value; return n; })}
+          applyPreset={(preset) => setEqGains(preset)}
+          isLossless={isLossless}
+          setIsLossless={setIsLossless}
+          crossfadeSecs={crossfadeSecs}
+          setCrossfadeSecs={setCrossfadeSecs}
+          onClose={() => setShowEqPanel(false)}
+        />
+      )}
     </>
   );
 };

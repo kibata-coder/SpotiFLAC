@@ -74,9 +74,9 @@ def _get_metadata(video_id: str):
 # ─────────────────────────────────────────────────────────────────────────────
 # Downloader: yt_dlp → .m4a  (simple, proven working)
 # ─────────────────────────────────────────────────────────────────────────────
-def download_audio(video_id: str):
+def download_audio(video_id: str, quality: str = "192"):
     """
-    Download best audio and convert to mp3 using yt_dlp.
+    Download best audio and convert to mp3 using yt_dlp, or keep original if lossless.
     Returns (filepath, track_title, artist, ext)
     """
     temp_dir    = tempfile.gettempdir()
@@ -87,11 +87,6 @@ def download_audio(video_id: str):
     ydl_opts = {
         "format":       "bestaudio/best",
         "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
-        "postprocessors": [{
-            "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
-            "preferredquality": "192",
-        }],
         "outtmpl":      os.path.join(temp_dir, f"{file_id}.%(ext)s"),
         "quiet":        True,
         "no_warnings":  True,
@@ -99,6 +94,13 @@ def download_audio(video_id: str):
             "cookiefile": COOKIES_PATH
         } if os.path.exists(COOKIES_PATH) else {}),
     }
+
+    if quality != "lossless":
+        ydl_opts["postprocessors"] = [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "mp3",
+            "preferredquality": quality if quality in ["192", "320"] else "192",
+        }]
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info       = ydl.extract_info(youtube_url, download=True)
@@ -274,10 +276,11 @@ def artist_top_tracks():
 @app.route("/api/download", methods=["GET"])
 def download():
     spotify_id = request.args.get("spotify_id")
+    quality = request.args.get("quality", "192")
     if not spotify_id:
         return jsonify({"error": "Missing spotify_id"}), 400
     try:
-        filepath, title, artist, ext = download_audio(spotify_id)
+        filepath, title, artist, ext = download_audio(spotify_id, quality)
         safe_name = re.sub(r'[\\/*?:"<>|]', "", f"{title} - {artist}")
         return send_file(
             filepath,
@@ -293,10 +296,11 @@ def download():
 @app.route("/api/stream", methods=["GET"])
 def stream():
     spotify_id = request.args.get("spotify_id")
+    quality = request.args.get("quality", "192")
     if not spotify_id:
         return jsonify({"error": "Missing spotify_id"}), 400
     try:
-        filepath, title, artist, ext = download_audio(spotify_id)
+        filepath, title, artist, ext = download_audio(spotify_id, quality)
         return send_file(filepath, as_attachment=False, mimetype=f"audio/{ext}")
     except Exception as e:
         print(f"Stream error: {e}")

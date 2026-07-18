@@ -32,8 +32,8 @@ export async function searchSpotify(query: string, searchType: string = 'track')
   return response.json();
 }
 
-export async function downloadTrackWeb(spotifyId: string): Promise<Blob> {
-  const response = await fetch(`${API_BASE_URL}/api/download?spotify_id=${encodeURIComponent(spotifyId)}`, {
+export async function downloadTrackWeb(spotifyId: string, quality: string = '192'): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}/api/download?spotify_id=${encodeURIComponent(spotifyId)}&quality=${quality}`, {
     method: "GET",
   });
 
@@ -50,8 +50,8 @@ export async function downloadTrackWeb(spotifyId: string): Promise<Blob> {
   return await response.blob();
 }
 
-export function getStreamUrl(spotifyId: string): string {
-  return `${API_BASE_URL}/api/stream?spotify_id=${encodeURIComponent(spotifyId)}`;
+export function getStreamUrl(spotifyId: string, quality: string = '192'): string {
+  return `${API_BASE_URL}/api/stream?spotify_id=${encodeURIComponent(spotifyId)}&quality=${quality}`;
 }
 
 export async function getLyrics(spotifyId: string): Promise<string> {
