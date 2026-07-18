@@ -76,7 +76,8 @@ def _get_metadata(video_id: str):
 # ─────────────────────────────────────────────────────────────────────────────
 def download_audio(video_id: str, quality: str = "192"):
     """
-    Download best audio and convert to mp3 using yt_dlp, or keep original if lossless.
+    Download best audio and convert to mp3/flac using yt_dlp, or keep original if lossless.
+    quality: "192" | "320" | "flac" | "lossless"
     Returns (filepath, track_title, artist, ext)
     """
     temp_dir    = tempfile.gettempdir()
@@ -95,7 +96,12 @@ def download_audio(video_id: str, quality: str = "192"):
         } if os.path.exists(COOKIES_PATH) else {}),
     }
 
-    if quality != "lossless":
+    if quality == "flac":
+        ydl_opts["postprocessors"] = [{
+            "key": "FFmpegExtractAudio",
+            "preferredcodec": "flac",
+        }]
+    elif quality != "lossless":
         ydl_opts["postprocessors"] = [{
             "key": "FFmpegExtractAudio",
             "preferredcodec": "mp3",
@@ -108,7 +114,7 @@ def download_audio(video_id: str, quality: str = "192"):
 
     # Locate the actual file yt_dlp wrote
     if not os.path.exists(downloaded):
-        for ext in (".mp3", ".m4a", ".webm", ".opus", ".ogg", ".mp4"):
+        for ext in (".flac", ".mp3", ".m4a", ".webm", ".opus", ".ogg", ".mp4"):
             candidate = os.path.splitext(downloaded)[0] + ext
             if os.path.exists(candidate):
                 downloaded = candidate

@@ -71,6 +71,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [downloadedFlac, setDownloadedFlac]   = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [crossfadeSecs, setCrossfadeSecs] = useState(3); // seconds
   const [isCrossfading, setIsCrossfading] = useState(false);
   const [sleepTimer, setSleepTimer]       = useState<number | null>(null); // remaining ms
@@ -482,10 +483,11 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setRepeatMode(m => m === 'none' ? 'all' : m === 'all' ? 'one' : 'none');
   };
 
-  const handleFlacDownload = () => {
+  const handleDownload = (format: '192' | 'flac') => {
     if (!currentTrack || downloadingFlac) return;
     setDownloadingFlac(true);
-    window.location.href = `/api/download?spotify_id=${currentTrack.id}`;
+    setShowDownloadMenu(false);
+    window.location.href = `/api/download?spotify_id=${currentTrack.id}&quality=${format}`;
     setTimeout(() => { setDownloadingFlac(false); setDownloadedFlac(true); }, 4000);
   };
 
@@ -612,6 +614,21 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         </div>
       )}
 
+      {/* Download menu */}
+      {showDownloadMenu && (
+        <div className="sp-speed-menu" onClick={() => setShowDownloadMenu(false)}>
+          <div className="sp-speed-menu-inner" onClick={e => e.stopPropagation()}>
+            <p className="sp-speed-menu-title">Download Format</p>
+            <button className="sp-speed-option" onClick={() => handleDownload('192')}>
+              MP3 (192kbps)
+            </button>
+            <button className="sp-speed-option" onClick={() => handleDownload('flac')}>
+              FLAC (Lossless Container)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sleep timer menu */}
       {showSleepMenu && (
         <div className="sp-speed-menu" onClick={() => setShowSleepMenu(false)}>
@@ -734,7 +751,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             <button
               id="player-download-flac"
               className={`sp-flac-btn ${downloadedFlac ? 'done' : ''}`}
-              onClick={handleFlacDownload}
+              onClick={() => downloadedFlac ? null : setShowDownloadMenu(s => !s)}
               disabled={downloadingFlac}
               title="Download audio"
             >
@@ -744,7 +761,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   ? <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                   : <Download className="w-3.5 h-3.5" />
               }
-              <span>{downloadedFlac ? 'Saved!' : 'M4A'}</span>
+              <span>{downloadedFlac ? 'Saved!' : 'Save'}</span>
             </button>
 
             {/* Playback speed */}
