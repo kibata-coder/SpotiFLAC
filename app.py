@@ -16,7 +16,8 @@ import imageio_ffmpeg
 
 from flask_cors import CORS
 
-COOKIES_PATH = "/app/cookies.txt"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+COOKIES_PATH = os.path.join(BASE_DIR, "cookies.txt")
 
 app = Flask(__name__)
 # Allow all origins - this is a public API, CORS wildcard prevents any mobile browser blocking
