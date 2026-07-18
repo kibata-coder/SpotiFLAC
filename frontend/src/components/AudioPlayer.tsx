@@ -417,7 +417,13 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (step >= steps) {
         clearInterval(fade);
         setIsCrossfading(false);
-        onNext?.(); // advance to next track (which will set its own streamUrl)
+        if (nextEl) {
+          nextEl.pause();
+          nextEl.removeAttribute('src');
+          nextEl.load();
+        }
+        seekPendingRef.current = crossfadeSecs; // Ensure audioRef picks up where nextEl left off
+        onNext?.(); // advance to next track
       }
     }, interval);
   };
