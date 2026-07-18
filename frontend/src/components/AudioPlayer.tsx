@@ -483,12 +483,27 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setRepeatMode(m => m === 'none' ? 'all' : m === 'all' ? 'one' : 'none');
   };
 
-  const handleDownload = (format: '192' | 'flac') => {
+  const handleDownload = async (format: '192' | 'flac') => {
     if (!currentTrack || downloadingFlac) return;
     setDownloadingFlac(true);
     setShowDownloadMenu(false);
-    window.location.href = `/api/download?spotify_id=${currentTrack.id}&quality=${format}`;
-    setTimeout(() => { setDownloadingFlac(false); setDownloadedFlac(true); }, 4000);
+    try {
+      const blob = await downloadTrackWeb(currentTrack.id, format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Provide a fallback filename; the browser may override this if the backend sets Content-Disposition
+      a.download = `${currentTrack.name.replace(/[/\\?%*:|"<>]/g, '')} - ${currentTrack.artists.replace(/[/\\?%*:|"<>]/g, '')}.${format === 'flac' ? 'flac' : 'mp3'}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setDownloadedFlac(true);
+    } catch (err: any) {
+      toast.error(err.message || 'Download failed');
+    } finally {
+      setDownloadingFlac(false);
+    }
   };
 
   const handleStartRadio = async () => {
